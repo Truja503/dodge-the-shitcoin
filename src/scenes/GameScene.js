@@ -7,9 +7,10 @@ import { GAME_WIDTH, GAME_HEIGHT } from "../utils/constants.js";
 import Bitcoin from "../entities/Bitcoin.js";
 import { loadPlayerAssets, createPlayerAnimations } from "../animations/playerAnimations.js";
 
+var player1Score = document.getElementById("player1-score");
+var player2Score = document.getElementById("player2-score");
 
-
-
+const header = document.querySelector("header");
 export default class GameScene extends Phaser.Scene {
     constructor() {
         super("GameScene");
@@ -17,20 +18,54 @@ export default class GameScene extends Phaser.Scene {
     preload() {
         loadPlayerAssets(this);
         this.load.image("eth_enemy", "../assets/enemy/eth_enemy.png");
-        this.load.image("bg_dark", "assets/backgrounds/bg.png");
+        this.load.image("bg_dark", "assets/backgrounds/bg4.png");
         this.load.image('magicParticle', 'assets/effects/particle.png');
         this.load.image('cloud', 'assets/backgrounds/fog_bg.png');
         this.load.image("bitcoin", "assets/items/bitcoin.png");
-
-
-
     }
 
     create() {
-        this.bg = this.add.tileSprite(0, 0, this.scale.width, this.scale.height, "bg_dark")
-            .setOrigin(0, 0)
-            .setDepth(-30);
-        this.bg.setDisplaySize(this.scale.width, this.scale.height);
+    this.bg = this.add.image(
+    this.scale.width / 2,
+    this.scale.height / 2,
+    "bg_dark"
+)
+.setDepth(-30);
+
+this.darkOverlay = this.add.rectangle(
+    0,
+    0,
+    this.scale.width,
+    this.scale.height,
+    0x000000,
+    0.8
+)
+.setOrigin(0, 0)
+.setDepth(-29);
+
+this.scale.on("resize", (gameSize) => {
+    const { width, height } = gameSize;
+    this.darkOverlay.setSize(width, height);
+});
+this.scale.on("resize", (gameSize) => {
+    const { width, height } = gameSize;
+
+    this.bg.setPosition(width / 2, height / 2);
+
+    const scaleX = width / this.bg.width;
+    const scaleY = height / this.bg.height;
+    const scale = Math.max(scaleX, scaleY);
+
+    this.bg.setScale(scale);
+});
+
+
+// Escalar proporcionalmente para cubrir toda la pantalla
+const scaleX = this.scale.width / this.bg.width;
+const scaleY = this.scale.height / this.bg.height;
+const scale = Math.max(scaleX, scaleY);
+
+this.bg.setScale(scale);
         //nube
         this.cloud1 = this.add.image(0, 0, "cloud").setOrigin(0.5);
         this.cloud2 = this.add.image(0, 0, "cloud").setOrigin(0.5);
@@ -72,7 +107,9 @@ export default class GameScene extends Phaser.Scene {
         this.player = new Player(this);
         this.player2 = new Player2(this);
 
-        // Spawner y dificultad
+        this.player.canMove = true;
+        //header 
+        header.style.display = "flex";
         this.spawner = new Spawner(this);
         this.difficulty = new DifficultyManager(this.spawner);
 
@@ -91,15 +128,9 @@ export default class GameScene extends Phaser.Scene {
         this.totalBitcoins = 21;
         this.spawnNextBitcoin();
 
-
-
         // Teclas Player1
         this.cursors = this.input.keyboard.createCursorKeys();
-
-        // UI
-        this.player1Text = this.add.text(16, 16, "Player1: 0", { fontSize: "24px", color: "#0f0" });
-        this.player2Text = this.add.text(16, 48, "Player2: 0", { fontSize: "24px", color: "#00f" });
-
+       
         // Collisions
         new CollisionManager(this, this.player, this.spawner, this, "player1");
         new CollisionManager(this, this.player2, this.spawner, this, "player2");
@@ -132,14 +163,14 @@ export default class GameScene extends Phaser.Scene {
 
         //howgarts effects: 
         this.cloud1.x += 0.02;
-this.cloud1.y += 0.01;
+        this.cloud1.y += 0.01;
 
-this.cloud2.x -= 0.015;
-this.cloud2.y += 0.02;
+        this.cloud2.x -= 0.015;
+        this.cloud2.y += 0.02;
 
-// ciclo infinito
-if (this.cloud1.x > this.scale.width) this.cloud1.x = -200;
-if (this.cloud2.x < -200) this.cloud2.x = this.scale.width + 200;
+        // ciclo infinito
+        if (this.cloud1.x > this.scale.width) this.cloud1.x = -200;
+        if (this.cloud2.x < -200) this.cloud2.x = this.scale.width + 200;
 
 
         this.spawner.enemyObjects.forEach(enemy => enemy.update());
@@ -154,12 +185,21 @@ if (this.cloud2.x < -200) this.cloud2.x = this.scale.width + 200;
         bitcoin.destroy();
         this.collectedCount++;
 
-        if (player === "player1") this.bitcoinsCollected.player1++;
-        else this.bitcoinsCollected.player2++;
 
-        // Actualizar UI
-        this.player1Text.setText(`Player1: ${this.bitcoinsCollected.player1}`);
-        this.player2Text.setText(`Player2: ${this.bitcoinsCollected.player2}`);
+        if (player === "player1") {
+            this.bitcoinsCollected.player1++;
+            player1Score.textContent = `Satoshi 1: ${this.bitcoinsCollected.player1}`;
+            const el = document.getElementById("player1-score");
+            el.classList.add("score-pop");
+
+            setTimeout(() => {
+                el.classList.remove("score-pop");
+            }, 200);
+        }
+        else {
+            this.bitcoinsCollected.player2++;
+            player2Score.textContent = `Satoshi 2: ${this.bitcoinsCollected.player2}`;
+        }
 
         // Si quedan bitcoins por colocar, spawn next
         if (this.collectedCount < this.totalBitcoins) {
@@ -181,18 +221,15 @@ if (this.cloud2.x < -200) this.cloud2.x = this.scale.width + 200;
             this.bitcoinsCollected[playerId]--;
         }
 
-        // Actualizar UI
-        this.player1Text.setText(`Player1: ${this.bitcoinsCollected.player1}`);
-        this.player2Text.setText(`Player2: ${this.bitcoinsCollected.player2}`);
 
-        // Reset posición
-        if (playerObj === this.player) {
-            this.player.sprite.x = GAME_WIDTH - 300;
-            this.player.sprite.y = GAME_HEIGHT / 2;
-        } else {
-            this.player2.sprite.x = 200;
-            this.player2.sprite.y = GAME_HEIGHT / 2;
-        }
+        // Push back y stun 
+        playerObj.sprite.setVelocity(0, 0);
+        playerObj.canMove = false;
+        this.time.delayedCall(1000, () => {
+            playerObj.canMove = true;
+        });
+
+        
     }
     spawnNextBitcoin() {
         if (this.collectedCount >= this.totalBitcoins) return;

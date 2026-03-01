@@ -4,12 +4,13 @@ import MenuScene from "./scenes/MenuScene.js";
 const config = {
     type: Phaser.AUTO,
     scale: {
-        mode: Phaser.Scale.FIT,
+        mode: Phaser.Scale.RESIZE,
         autoCenter: Phaser.Scale.CENTER_BOTH,
         width: window.innerWidth,
         height: window.innerHeight,
     },
     backgroundColor: "#222",
+    parent: "game-container",
     physics: {
         default: "arcade",
         arcade: {

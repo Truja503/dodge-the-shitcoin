@@ -13,11 +13,9 @@ export default class Player {
         this.sprite.setScale(0.1);
         this.sprite.body.setSize(500, 900); 
         this.sprite.body.setOffset(1000, 400);
+        this.canMove = true; // flag para controlar el movimiento
 
         this.sprite.setTint(0xaaaaaa); 
-
-
-
         this.sprite.setCollideWorldBounds(true);
 
         this.currentAnim = 'player_idle';
@@ -25,18 +23,23 @@ export default class Player {
     }
 
     update(cursors) {
+        var vx;
+        var vy;
         if (!cursors) return;
+        if (!this.canMove) {
+            this.sprite.setVelocity(0, 0);
+            return;
+        }
+        else{
+            vx = cursors.left.isDown ? -PLAYER_SPEED : cursors.right.isDown ? PLAYER_SPEED : 0;
 
-        const vx =
-            cursors.left.isDown ? -PLAYER_SPEED :
-            cursors.right.isDown ? PLAYER_SPEED : 0;
-
-        const vy =
+            vy =
             cursors.up.isDown ? -PLAYER_SPEED :
             cursors.down.isDown ? PLAYER_SPEED : 0;
 
-        this.sprite.setVelocity(vx, vy);
-
+            this.sprite.setVelocity(vx, vy);
+        }
+        
         // Animación
         if (vx !== 0 || vy !== 0) {
             if (this.currentAnim !== 'player_move') {
@@ -44,11 +47,11 @@ export default class Player {
                 this.currentAnim = 'player_move';
             }
 
-            // flip para izquierda/derecha
-            if (vx < 0) this.sprite.setFlipX(true);
+                // flip para izquierda/derecha
+                if (vx < 0) this.sprite.setFlipX(true);
             else if (vx > 0) this.sprite.setFlipX(false);
-
-        } else {
+        } 
+        else {
             if (this.currentAnim !== 'player_idle') {
                 this.sprite.play('player_idle', true);
                 this.currentAnim = 'player_idle';

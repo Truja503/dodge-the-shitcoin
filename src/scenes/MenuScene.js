@@ -5,7 +5,7 @@ export default class MenuScene extends Phaser.Scene {
 
     preload() {
         // Puedes cargar un background o logo si quieres
-        this.load.image("bg_chaos", "assets/backgrounds/bg_chaos.png");
+        this.load.image("bg_chaos", "assets/backgrounds/bg7.png");
     }
 
     create() {

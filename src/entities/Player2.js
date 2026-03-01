@@ -14,10 +14,12 @@ export default class Player2 {
 
         // Misma escala
         this.sprite.setScale(0.1);
+    
 
         // Misma hitbox para que ambos players sean justos
         this.sprite.body.setSize(500, 900);
         this.sprite.body.setOffset(1000, 400);
+        this.canMove = true; // flag para controlar el movimiento
 
         // Color único para el Player2
         this.sprite.setTint(0xe4b320); 
@@ -47,7 +49,13 @@ export default class Player2 {
         }
 
         // Aplicar movimiento
-        this.sprite.setVelocity(vx, vy);
+        if (!this.canMove) {
+            this.sprite.setVelocity(0, 0);
+        }
+        else{
+            this.sprite.setVelocity(vx, vy);
+
+        }
 
         // Animación
         if (vx !== 0 || vy !== 0) {
