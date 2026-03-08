@@ -6,6 +6,7 @@ import CollisionManager from "../systems/CollisionManager.js";
 import { GAME_WIDTH, GAME_HEIGHT } from "../utils/constants.js";
 import Bitcoin from "../entities/Bitcoin.js";
 import { loadPlayerAssets, createPlayerAnimations } from "../animations/playerAnimations.js";
+import Dollar from "../entities/Dollar.js";
 
 var player1Score = document.getElementById("player1-score");
 var player2Score = document.getElementById("player2-score");
@@ -25,47 +26,55 @@ export default class GameScene extends Phaser.Scene {
     }
 
     create() {
-    this.bg = this.add.image(
-    this.scale.width / 2,
-    this.scale.height / 2,
-    "bg_dark"
-)
-.setDepth(-30);
 
-this.darkOverlay = this.add.rectangle(
-    0,
-    0,
-    this.scale.width,
-    this.scale.height,
-    0x000000,
-    0.8
-)
-.setOrigin(0, 0)
-.setDepth(-29);
+        this.dollars = this.physics.add.group();
 
-this.scale.on("resize", (gameSize) => {
-    const { width, height } = gameSize;
-    this.darkOverlay.setSize(width, height);
-});
-this.scale.on("resize", (gameSize) => {
-    const { width, height } = gameSize;
+        const dollar = new Dollar(this, 400, 300);
+        this.dollars.add(dollar);
 
-    this.bg.setPosition(width / 2, height / 2);
+        // Grupo de dólares lanzados
+        this.thrownDollars = this.physics.add.group();
 
-    const scaleX = width / this.bg.width;
-    const scaleY = height / this.bg.height;
-    const scale = Math.max(scaleX, scaleY);
+        this.bg = this.add.image(
+            this.scale.width / 2,
+            this.scale.height / 2,
+            "bg_dark"
+        ).setDepth(-30);
 
-    this.bg.setScale(scale);
-});
+        this.darkOverlay = this.add.rectangle(
+            0,
+            0,
+            this.scale.width,
+            this.scale.height,
+            0x000000,
+            0.8
+        )
+            .setOrigin(0, 0)
+            .setDepth(-29);
+
+        this.scale.on("resize", (gameSize) => {
+            const { width, height } = gameSize;
+            this.darkOverlay.setSize(width, height);
+        });
+        this.scale.on("resize", (gameSize) => {
+            const { width, height } = gameSize;
+
+            this.bg.setPosition(width / 2, height / 2);
+
+            const scaleX = width / this.bg.width;
+            const scaleY = height / this.bg.height;
+            const scale = Math.max(scaleX, scaleY);
+
+            this.bg.setScale(scale);
+        });
 
 
-// Escalar proporcionalmente para cubrir toda la pantalla
-const scaleX = this.scale.width / this.bg.width;
-const scaleY = this.scale.height / this.bg.height;
-const scale = Math.max(scaleX, scaleY);
+        // Escalar proporcionalmente para cubrir toda la pantalla
+        const scaleX = this.scale.width / this.bg.width;
+        const scaleY = this.scale.height / this.bg.height;
+        const scale = Math.max(scaleX, scaleY);
 
-this.bg.setScale(scale);
+        this.bg.setScale(scale);
         //nube
         this.cloud1 = this.add.image(0, 0, "cloud").setOrigin(0.5);
         this.cloud2 = this.add.image(0, 0, "cloud").setOrigin(0.5);
@@ -86,8 +95,6 @@ this.bg.setScale(scale);
         this.cloud2.x = this.scale.width / 2;
         this.cloud2.y = this.scale.height / 2;
 
-
-
         this.bitcoinsCollected = { player1: 0, player2: 0 };
         this.collectedCount = 0; // total de bitcoins recogidos hasta ahora
 
@@ -103,7 +110,6 @@ this.bg.setScale(scale);
         createPlayerAnimations(this);
 
         // Jugadores
-
         this.player = new Player(this);
         this.player2 = new Player2(this);
 
@@ -112,6 +118,10 @@ this.bg.setScale(scale);
         header.style.display = "flex";
         this.spawner = new Spawner(this);
         this.difficulty = new DifficultyManager(this.spawner);
+
+        this.spaceKey = this.input.keyboard.addKey(
+            Phaser.Input.Keyboard.KeyCodes.SPACE
+        );
 
         // Enemigos y dificultad
         this.time.addEvent({
@@ -130,7 +140,12 @@ this.bg.setScale(scale);
 
         // Teclas Player1
         this.cursors = this.input.keyboard.createCursorKeys();
-       
+
+        this.input.gamepad.once('connected', (pad) => {
+            console.log('Gamepad conectado:', pad.id);
+            this.player.controller = true;
+        });
+
         // Collisions
         new CollisionManager(this, this.player, this.spawner, this, "player1");
         new CollisionManager(this, this.player2, this.spawner, this, "player2");
@@ -149,14 +164,33 @@ this.bg.setScale(scale);
             frequency: 40,
             tint: [0x7dd3fc, 0x38bdf8, 0x0ea5e9],
         });
-        
+        this.physics.add.overlap(
+            this.player.sprite,
+            this.dollars,
+            this.collectDollar,
+            null,
+            this
+        );
+        this.physics.add.overlap(
+            this.player2.sprite,
+            this.dollars,
+            this.collectDollar,
+            null,
+            this
+        );
+
     }
 
     update() {
         if (!this.gameStarted) return;
 
-        this.player.update(this.cursors);
+        const pad = this.input.gamepad.getPad(0);
+        this.player.update(this.cursors, pad);
         this.player2.update(this.wasdKeys);
+
+        if (Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
+            this.player.throwDollar();
+        }
 
         this.bg.tilePositionX += 0.05;
         this.bg.tilePositionY += 0.03;
@@ -174,9 +208,6 @@ this.bg.setScale(scale);
 
 
         this.spawner.enemyObjects.forEach(enemy => enemy.update());
-        for (const enemy of this.spawner.enemyObjects) {
-        enemy.update();
-    }
 
     }
 
@@ -229,7 +260,7 @@ this.bg.setScale(scale);
             playerObj.canMove = true;
         });
 
-        
+
     }
     spawnNextBitcoin() {
         if (this.collectedCount >= this.totalBitcoins) return;
@@ -239,7 +270,21 @@ this.bg.setScale(scale);
         const btc = new Bitcoin(this, x, y);
         this.spawner.bitcoins.add(btc.sprite);
     }
+    collectDollar(playerSprite, dollar) {
 
+        dollar.destroy();
+
+        if (playerSprite === this.player.sprite) {
+            this.player.dollarCount++;
+            this.player.speed *= 0.9;
+        }
+
+        if (playerSprite === this.player2.sprite) {
+            this.player2.dollarCount++;
+            this.player2.speed *= 0.9;
+        }
+
+    }
     // Fin del juego
     endGame() {
         this.gameStarted = false;
@@ -251,4 +296,5 @@ this.bg.setScale(scale);
         this.add.text(GAME_WIDTH / 2 - 100, GAME_HEIGHT / 2, winner, { fontSize: "32px", color: "#fff" });
         this.time.delayedCall(5000, () => this.scene.start("MenuScene"));
     }
+
 }

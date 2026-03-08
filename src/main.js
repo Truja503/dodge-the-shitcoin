@@ -11,6 +11,9 @@ const config = {
     },
     backgroundColor: "#222",
     parent: "game-container",
+    input: {
+        gamepad: true
+    },
     physics: {
         default: "arcade",
         arcade: {

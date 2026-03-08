@@ -80,4 +80,12 @@ export default class CollisionManager {
             this.otherPlayer.canMove = true;
         });
     }
+
+    hitDollar(dollarSprite, playerSprite) {
+        dollarSprite.destroy();
+        setInterval(() => {
+            playerSprite.setVelocity(200, 200);
+        }, 2000);
+        
+    }
 }
