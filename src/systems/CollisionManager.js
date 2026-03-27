@@ -38,31 +38,52 @@ export default class CollisionManager {
     }
 
     hitEnemy(playerSprite, enemySprite) {
-        // Invencible = ignora el golpe pero destruye el enemigo
+        const enemyObj = enemySprite._enemyRef;
+        if (!enemyObj) return;
+
+        // ── Invencible: destruye sin daño, sin split ──
         if (this.player.isInvincible) {
-            const enemyObj = this.spawner.enemyObjects.find(e => e.sprite === enemySprite);
-            if (!enemyObj) return;
             enemyObj.kill();
             this.spawner.enemyObjects = this.spawner.enemyObjects.filter(e => e !== enemyObj);
             return;
         }
 
-        const enemyObj = this.spawner.enemyObjects.find(e => e.sprite === enemySprite);
-        if (!enemyObj) return;
+        // Guardar datos ANTES de tocar el enemy
+        const ex = enemySprite.x;
+        const ey = enemySprite.y;
+        const hitForce    = enemyObj.getHitForce();
+        const stunDuration = enemyObj.getStunDuration();
+        const canSplit    = enemyObj.canSplit();
 
-        const ex = enemySprite.x, ey = enemySprite.y;
-        enemyObj.kill();
-        this.spawner.enemyObjects = this.spawner.enemyObjects.filter(e => e !== enemyObj);
+        // ── Dividir o matar ──
+        if (canSplit) {
+            const children = enemyObj.split();
+            this.spawner.enemyObjects = this.spawner.enemyObjects.filter(e => e !== enemyObj);
+            children.forEach(child => {
+                this.spawner.enemies.add(child.sprite);
+                this.spawner.enemyObjects.push(child);
+            });
+        } else {
+            enemyObj.kill();
+            this.spawner.enemyObjects = this.spawner.enemyObjects.filter(e => e !== enemyObj);
+        }
 
-        playerSprite.x += (playerSprite.x < ex) ? -70 : 70;
-        playerSprite.y += (playerSprite.y < ey) ? -70 : 70;
+        // ── Daño al jugador proporcional al tamaño ──
+        const pushDirX = (playerSprite.x < ex) ? -1 : 1;
+        const pushDirY = (playerSprite.y < ey) ? -1 : 1;
+        playerSprite.x += pushDirX * hitForce;
+        playerSprite.y += pushDirY * hitForce;
 
+        // Shake proporcional
+        const shakeIntensity = Phaser.Math.Clamp(hitForce / 7000, 0.005, 0.02);
         this.scene.cameras.main.flash(100, 255, 255, 255);
-        this.scene.cameras.main.shake(150, 0.01);
+        this.scene.cameras.main.shake(stunDuration * 0.15, shakeIntensity);
 
         this.player.canMove = false;
-        this.scene.time.delayedCall(1000, () => {
-            if (this.player && this.player.sprite && this.player.sprite.body) this.player.canMove = true;
+        this.scene.time.delayedCall(stunDuration, () => {
+            if (this.player && this.player.sprite && this.player.sprite.body) {
+                this.player.canMove = true;
+            }
         });
 
         this.gameScene.hitByEnemy(this.player);
@@ -73,7 +94,6 @@ export default class CollisionManager {
     }
 
     hitOtherPlayer(playerSprite, otherSprite) {
-        // Si ambos son invencibles, no pasa nada
         if (this.player.isInvincible && this.otherPlayer.isInvincible) return;
 
         playerSprite.x += (playerSprite.x < otherSprite.x) ? -70 : 70;
@@ -84,13 +104,17 @@ export default class CollisionManager {
         if (!this.player.isInvincible) {
             this.player.canMove = false;
             this.scene.time.delayedCall(1000, () => {
-                if (this.player && this.player.sprite && this.player.sprite.body) this.player.canMove = true;
+                if (this.player && this.player.sprite && this.player.sprite.body) {
+                    this.player.canMove = true;
+                }
             });
         }
         if (!this.otherPlayer.isInvincible) {
             this.otherPlayer.canMove = false;
             this.scene.time.delayedCall(1000, () => {
-                if (this.otherPlayer && this.otherPlayer.sprite && this.otherPlayer.sprite.body) this.otherPlayer.canMove = true;
+                if (this.otherPlayer && this.otherPlayer.sprite && this.otherPlayer.sprite.body) {
+                    this.otherPlayer.canMove = true;
+                }
             });
         }
     }

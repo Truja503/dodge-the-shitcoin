@@ -282,6 +282,14 @@ getDb().then(() => {
   server.listen(PORT, () => {
     console.log(`Tournament server running on port ${PORT}`);
   });
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`Port ${PORT} already in use. Kill the other process or use PORT=XXXX node server.js`);
+    } else {
+      console.error('Server error:', err);
+    }
+    process.exit(1);
+  });
 }).catch(err => {
   console.error('Failed to initialize database:', err);
   process.exit(1);

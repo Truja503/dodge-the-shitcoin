@@ -4,7 +4,7 @@ import { GAME_WIDTH, GAME_HEIGHT } from "../utils/constants.js";
 const DOLLAR_SLOW_SPEED    = 180;
 const DOLLAR_SLOW_DURATION = 4000;
 const DOLLAR_THROW_WINDOW  = 2000;
-const DOLLAR_THROW_SPEED   = 600;
+const DOLLAR_THROW_SPEED   = 450;
 
 const PILL_BOOST_SPEED     = 900;
 const PILL_DURATION        = 3000;
@@ -133,14 +133,26 @@ export default class Player2 {
             this.sprite.y + ndy * 60,
             "dollar"
         );
-        proj.setScale(0.025).setTint(0x00ff00).setDepth(15);
-        proj.body.setAllowGravity(false);
+        proj.setScale(0.04).setTint(0x00ff00).setDepth(15);
+        proj.body.setAllowGravity(true);
+        proj.body.setGravityY(300);
         proj._thrower = this;
 
         proj.body.setVelocity(
             ndx * DOLLAR_THROW_SPEED,
-            ndy * DOLLAR_THROW_SPEED
+            ndy * DOLLAR_THROW_SPEED - 150
         );
+
+        this.scene.tweens.add({
+            targets: proj,
+            rotation: Math.PI * 4,
+            duration: 2000,
+            ease: 'Linear'
+        });
+
+        this.scene.time.delayedCall(3000, () => {
+            if (proj && proj.active) proj.destroy();
+        });
 
         this.scene.thrownDollars.add(proj);
         this.dollarCount--;
