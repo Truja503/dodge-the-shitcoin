@@ -139,10 +139,12 @@ export default class Player {
             "dollar"
         );
         proj.setScale(0.04).setTint(0x00ff00).setDepth(15);
-        proj.body.setAllowGravity(false);
         proj._thrower = this;
 
-        // Lanzamiento recto en la dirección del último movimiento
+        // Agregar al grupo ANTES de setVelocity (el group puede resetear el body)
+        this.scene.thrownDollars.add(proj);
+
+        proj.body.setAllowGravity(false);
         proj.body.setVelocity(
             ndx * DOLLAR_THROW_SPEED,
             ndy * DOLLAR_THROW_SPEED
@@ -161,7 +163,6 @@ export default class Player {
             if (proj && proj.active) proj.destroy();
         });
 
-        this.scene.thrownDollars.add(proj);
         this.dollarCount--;
     }
 }
