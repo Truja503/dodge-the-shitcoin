@@ -2,10 +2,13 @@ import { PLAYER_SPEED } from "../utils/constants.js";
 import { GAME_WIDTH } from "../utils/constants.js";
 import { GAME_HEIGHT } from "../utils/constants.js";
 
-const DOLLAR_SLOW_SPEED   = 180;   // velocidad mientras está enlentecido
-const DOLLAR_SLOW_DURATION  = 4000; // ms que dura el slow
-const DOLLAR_THROW_WINDOW   = 2000; // ms de ventana para tirar el dólar
-const DOLLAR_THROW_SPEED    = 600;
+const DOLLAR_SLOW_SPEED    = 180;
+const DOLLAR_SLOW_DURATION = 4000;
+const DOLLAR_THROW_WINDOW  = 2000;
+const DOLLAR_THROW_SPEED   = 600;
+
+const PILL_BOOST_SPEED     = 900;
+const PILL_DURATION        = 3000;
 
 export default class Player {
     constructor(scene) {
@@ -20,8 +23,9 @@ export default class Player {
         this.sprite.body.setOffset(1000, 400);
         this.canMove = true;
 
-        this.dollarCount = 0;
-        this.isSlowed = false;
+        this.dollarCount  = 0;
+        this.isSlowed     = false;
+        this.isInvincible = false;
 
         this.lastDirectionX = 1;
         this.lastDirectionY = 0;
@@ -80,52 +84,63 @@ export default class Player {
         }
     }
 
-    /** Aplica el slow de 4s y abre ventana de 2s para lanzar */
+    /** Slow 4s + ventana 2s para tirar */
     applyDollarSlow() {
+        // Si está en modo pill, no aplica slow
+        if (this.isInvincible) return;
+
         this.isSlowed = true;
         this.speed = DOLLAR_SLOW_SPEED;
 
-        // Cierra la ventana de tiro después de 2s
         this.scene.time.delayedCall(DOLLAR_THROW_WINDOW, () => {
-            if (this.dollarCount > 0) {
-                // No lo tiró — lo pierde
-                this.dollarCount = 0;
-            }
+            if (this.dollarCount > 0) this.dollarCount = 0;
         });
 
-        // Recupera velocidad después de 4s
         this.scene.time.delayedCall(DOLLAR_SLOW_DURATION, () => {
-            this.isSlowed = false;
+            if (!this.isInvincible) {
+                this.isSlowed = false;
+                this.speed = PLAYER_SPEED;
+            }
+        });
+    }
+
+    /** Orange Pill: 3s invencible + rápido */
+    applyOrangePill() {
+        this.isInvincible = true;
+        this.isSlowed = false;
+        this.speed = PILL_BOOST_SPEED;
+
+        // Tint naranja mientras dura
+        this.sprite.setTint(0xff8c00);
+
+        this.scene.time.delayedCall(PILL_DURATION, () => {
+            this.isInvincible = false;
             this.speed = PLAYER_SPEED;
+            this.sprite.setTint(0xaaaaaa); // tint original P1
         });
     }
 
     throwDollar() {
         if (this.dollarCount <= 0) return;
 
-        const dollar = this.scene.add.rectangle(
+        const proj = this.scene.physics.add.image(
             this.sprite.x,
             this.sprite.y,
-            20,
-            20,
-            0x00ff00
+            "dollar"
         );
+        proj.setScale(0.025).setTint(0x00ff00).setDepth(15);
+        proj.body.setAllowGravity(false);
+        proj._thrower = this;
 
-        this.scene.physics.add.existing(dollar);
-        this.scene.thrownDollars.add(dollar);
-        dollar._thrower = this; // para no autogolpearse
-
-        // Si no se movió, tirar a la derecha por defecto
         const dx = this.lastDirectionX || 1;
         const dy = this.lastDirectionY || 0;
         const mag = Math.sqrt(dx * dx + dy * dy) || 1;
-
-        dollar.body.setAllowGravity(false);
-        dollar.body.setVelocity(
+        proj.body.setVelocity(
             (dx / mag) * DOLLAR_THROW_SPEED,
             (dy / mag) * DOLLAR_THROW_SPEED
         );
 
+        this.scene.thrownDollars.add(proj);
         this.dollarCount--;
     }
 }

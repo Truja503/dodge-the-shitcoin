@@ -1,13 +1,13 @@
 export default class CollisionManager {
     constructor(scene, player, spawner, gameScene, playerId, otherPlayer) {
-        this.scene = scene;
-        this.player = player;
-        this.spawner = spawner;
-        this.gameScene = gameScene; // referencia al GameScene
-        this.playerId = playerId;   // "player1" o "player2"
-        this.otherPlayer = otherPlayer; // referencia al otro jugador
+        this.scene      = scene;
+        this.player     = player;
+        this.spawner    = spawner;
+        this.gameScene  = gameScene;
+        this.playerId   = playerId;
+        this.otherPlayer = otherPlayer;
 
-        // Colisión contra enemigos
+        // Jugador vs enemigos
         scene.physics.add.overlap(
             player.sprite,
             spawner.enemies,
@@ -16,7 +16,7 @@ export default class CollisionManager {
             this
         );
 
-        // Colisión contra bitcoin
+        // Jugador vs bitcoins
         scene.physics.add.overlap(
             player.sprite,
             spawner.bitcoins,
@@ -25,8 +25,8 @@ export default class CollisionManager {
             this
         );
 
-        // Colisión contra el otro jugador
-        if (this.otherPlayer) {
+        // Jugador vs otro jugador
+        if (otherPlayer) {
             scene.physics.add.overlap(
                 player.sprite,
                 otherPlayer.sprite,
@@ -38,24 +38,33 @@ export default class CollisionManager {
     }
 
     hitEnemy(playerSprite, enemySprite) {
+        // Invencible = ignora el golpe pero destruye el enemigo
+        if (this.player.isInvincible) {
+            const enemyObj = this.spawner.enemyObjects.find(e => e.sprite === enemySprite);
+            if (!enemyObj) return;
+            enemyObj.kill();
+            this.spawner.enemyObjects = this.spawner.enemyObjects.filter(e => e !== enemyObj);
+            return;
+        }
+
         const enemyObj = this.spawner.enemyObjects.find(e => e.sprite === enemySprite);
         if (!enemyObj) return;
 
         enemyObj.kill();
         this.spawner.enemyObjects = this.spawner.enemyObjects.filter(e => e !== enemyObj);
 
-        // move a little bit the player and can't move for a short time (stun)
-        playerSprite.x += (playerSprite.x < enemySprite.x) ? -70 : 70; // push back
+        playerSprite.x += (playerSprite.x < enemySprite.x) ? -70 : 70;
         playerSprite.y += (playerSprite.y < enemySprite.y) ? -70 : 70;
-    
+
         this.scene.cameras.main.flash(100, 255, 255, 255);
         this.scene.cameras.main.shake(150, 0.01);
 
-        // Stun effect: disable movement for 1 second
         this.player.canMove = false;
         this.scene.time.delayedCall(1000, () => {
-            this.player.canMove = true;
+            if (this.player) this.player.canMove = true;
         });
+
+        this.gameScene.hitByEnemy(this.player);
     }
 
     hitCoin(coinSprite) {
@@ -63,29 +72,25 @@ export default class CollisionManager {
     }
 
     hitOtherPlayer(playerSprite, otherSprite) {
-        playerSprite.x += (playerSprite.x < otherSprite.x) ? -70 : 70; // push back
+        // Si ambos son invencibles, no pasa nada
+        if (this.player.isInvincible && this.otherPlayer.isInvincible) return;
+
+        playerSprite.x += (playerSprite.x < otherSprite.x) ? -70 : 70;
         playerSprite.y += (playerSprite.y < otherSprite.y) ? -70 : 70;
+        otherSprite.x  += (otherSprite.x < playerSprite.x) ? -70 : 70;
+        otherSprite.y  += (otherSprite.y < playerSprite.y) ? -70 : 70;
 
-        otherSprite.x += (otherSprite.x < playerSprite.x) ? -70 : 70; // push back
-        otherSprite.y += (otherSprite.y < playerSprite.y) ? -70 : 70;
-
-        // Stun effect: disable movement for 1 second
-        this.player.canMove = false;
-        this.scene.time.delayedCall(1000, () => {
-            this.player.canMove = true;
-        });
-
-        this.otherPlayer.canMove = false;
-        this.scene.time.delayedCall(1000, () => {
-            this.otherPlayer.canMove = true;
-        });
-    }
-
-    hitDollar(dollarSprite, playerSprite) {
-        dollarSprite.destroy();
-        setInterval(() => {
-            playerSprite.setVelocity(200, 200);
-        }, 2000);
-        
+        if (!this.player.isInvincible) {
+            this.player.canMove = false;
+            this.scene.time.delayedCall(1000, () => {
+                if (this.player) this.player.canMove = true;
+            });
+        }
+        if (!this.otherPlayer.isInvincible) {
+            this.otherPlayer.canMove = false;
+            this.scene.time.delayedCall(1000, () => {
+                if (this.otherPlayer) this.otherPlayer.canMove = true;
+            });
+        }
     }
 }
