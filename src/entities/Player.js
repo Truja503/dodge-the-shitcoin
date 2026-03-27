@@ -42,6 +42,8 @@ export default class Player {
     }
 
     update(cursors, pad) {
+        if (!this.sprite || !this.sprite.body) return;
+
         if (!this.canMove) {
             this.sprite.setVelocity(0, 0);
             return;

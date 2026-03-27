@@ -42,6 +42,7 @@ export default class Player2 {
 
     update(keys) {
         if (!keys) return;
+        if (!this.sprite || !this.sprite.body) return;
 
         if (!this.canMove) {
             this.sprite.setVelocity(0, 0);

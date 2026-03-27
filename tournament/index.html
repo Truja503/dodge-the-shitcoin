@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tournament Bracket — Dodge the Shitcoin</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0b0f1a;
+  --bg-card: #141927;
+  --bg-card-hover: #1a2236;
+  --border: #1e293b;
+  --gold: #f5a623;
+  --gold-bright: #ffd700;
+  --gold-dim: #b8860b;
+  --green: #22c55e;
+  --red: #ef4444;
+  --text: #e2e8f0;
+  --text-dim: #64748b;
+  --text-bright: #f8fafc;
+  --accent: #38bdf8;
+  --glow-gold: 0 0 20px rgba(245,166,35,0.3);
+  --glow-active: 0 0 15px rgba(56,189,248,0.4);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  min-height: 100vh;
+  overflow-x: auto;
+}
+
+/* Header */
+.header {
+  text-align: center;
+  padding: 2rem 1rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, #0f1629 0%, var(--bg) 100%);
+}
+.header h1 {
+  font-family: 'Cinzel', serif;
+  font-size: 2.2rem;
+  font-weight: 900;
+  background: linear-gradient(135deg, var(--gold), var(--gold-bright), var(--gold));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: none;
+  filter: drop-shadow(0 0 20px rgba(245,166,35,0.3));
+  letter-spacing: 2px;
+}
+.header .status-badge {
+  display: inline-block;
+  margin-top: 0.5rem;
+  padding: 0.25rem 1rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.status-pending { background: rgba(56,189,248,0.15); color: var(--accent); border: 1px solid rgba(56,189,248,0.3); }
+.status-active { background: rgba(34,197,94,0.15); color: var(--green); border: 1px solid rgba(34,197,94,0.3); }
+.status-finished { background: rgba(245,166,35,0.15); color: var(--gold); border: 1px solid rgba(245,166,35,0.3); }
+
+/* Player list (pending) */
+.players-section {
+  max-width: 600px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
+.players-section h2 {
+  font-family: 'Cinzel', serif;
+  color: var(--gold);
+  font-size: 1.2rem;
+  margin-bottom: 1rem;
+}
+.player-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.5rem;
+}
+.player-chip {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.player-chip:hover {
+  border-color: var(--gold);
+  box-shadow: var(--glow-gold);
+}
+.player-chip .seed { color: var(--text-dim); font-size: 0.7rem; }
+
+/* Bracket */
+.bracket-container {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0;
+  padding: 2rem 1rem;
+  min-height: 60vh;
+  overflow-x: auto;
+}
+.round {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  min-width: 220px;
+  position: relative;
+}
+.round-title {
+  text-align: center;
+  font-family: 'Cinzel', serif;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  margin-bottom: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+.match-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin: 8px 12px;
+  overflow: hidden;
+  transition: all 0.3s;
+  cursor: default;
+}
+.match-card.active {
+  border-color: var(--accent);
+  box-shadow: var(--glow-active);
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+.match-card.finished { border-color: var(--border); }
+.match-card.admin-clickable { cursor: pointer; }
+.match-card.admin-clickable:hover {
+  border-color: var(--gold);
+  box-shadow: var(--glow-gold);
+  transform: translateY(-2px);
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 10px rgba(56,189,248,0.2); }
+  50% { box-shadow: 0 0 25px rgba(56,189,248,0.5); }
+}
+
+.match-player {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.85rem;
+  transition: background 0.2s;
+}
+.match-player:first-child { border-bottom: 1px solid var(--border); }
+.match-player.winner {
+  background: rgba(245,166,35,0.08);
+}
+.match-player.winner .player-name {
+  color: var(--gold-bright);
+  font-weight: 600;
+}
+.match-player .player-name {
+  flex: 1;
+  color: var(--text);
+}
+.match-player .player-name.empty { color: var(--text-dim); font-style: italic; }
+.match-player .score {
+  min-width: 28px;
+  text-align: center;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-dim);
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.03);
+}
+.match-player.winner .score {
+  color: var(--gold);
+  background: rgba(245,166,35,0.1);
+}
+
+/* Connectors */
+.connector-col {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  width: 30px;
+  min-width: 30px;
+}
+.connector {
+  position: relative;
+  flex: 1;
+  min-height: 40px;
+}
+.connector::before, .connector::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  border-color: var(--border);
+  border-style: solid;
+}
+.connector-top::before {
+  top: 50%;
+  width: 100%;
+  height: 50%;
+  border-width: 1px 1px 0 0;
+  border-radius: 0 8px 0 0;
+}
+.connector-bottom::before {
+  bottom: 50%;
+  width: 100%;
+  height: 50%;
+  border-width: 0 1px 1px 0;
+  border-radius: 0 0 8px 0;
+}
+
+/* Champion */
+.champion-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 180px;
+  padding: 1rem;
+}
+.trophy { font-size: 3rem; margin-bottom: 0.5rem; filter: drop-shadow(0 0 20px rgba(255,215,0,0.6)); }
+.champion-name {
+  font-family: 'Cinzel', serif;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--gold-bright);
+  text-align: center;
+  text-shadow: 0 0 20px rgba(255,215,0,0.4);
+}
+.champion-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  color: var(--text-dim);
+  margin-top: 0.3rem;
+}
+
+/* Admin panel */
+.admin-bar {
+  background: linear-gradient(135deg, rgba(245,166,35,0.05), rgba(245,166,35,0.02));
+  border: 1px solid rgba(245,166,35,0.2);
+  border-radius: 12px;
+  max-width: 600px;
+  margin: 1.5rem auto;
+  padding: 1rem 1.5rem;
+  text-align: center;
+}
+.admin-bar h3 {
+  font-family: 'Cinzel', serif;
+  color: var(--gold);
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+}
+.btn {
+  display: inline-block;
+  padding: 0.6rem 1.5rem;
+  border-radius: 8px;
+  border: none;
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.btn-gold {
+  background: linear-gradient(135deg, var(--gold), var(--gold-dim));
+  color: #0b0f1a;
+}
+.btn-gold:hover {
+  box-shadow: var(--glow-gold);
+  transform: translateY(-1px);
+}
+.btn-gold:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Modal */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(4px);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+}
+.modal-overlay.active { display: flex; }
+.modal {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 2rem;
+  min-width: 320px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+.modal h3 {
+  font-family: 'Cinzel', serif;
+  color: var(--gold);
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+.modal-match-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  margin-bottom: 1.5rem;
+  gap: 1rem;
+}
+.modal-player {
+  text-align: center;
+  flex: 1;
+}
+.modal-player .name {
+  font-weight: 600;
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+}
+.modal-player input {
+  width: 70px;
+  padding: 0.5rem;
+  text-align: center;
+  font-size: 1.2rem;
+  font-weight: 700;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text-bright);
+  outline: none;
+}
+.modal-player input:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 10px rgba(245,166,35,0.2);
+}
+.modal-vs {
+  font-family: 'Cinzel', serif;
+  font-size: 1.2rem;
+  color: var(--text-dim);
+}
+.modal-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-top: 1rem;
+}
+.btn-cancel {
+  background: var(--bg);
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+}
+.btn-cancel:hover { border-color: var(--text-dim); }
+
+/* Stats panel */
+.stats-panel {
+  display: none;
+  position: fixed;
+  right: 0;
+  top: 0;
+  width: 300px;
+  height: 100vh;
+  background: var(--bg-card);
+  border-left: 1px solid var(--border);
+  padding: 2rem 1.5rem;
+  z-index: 50;
+  overflow-y: auto;
+  box-shadow: -10px 0 40px rgba(0,0,0,0.3);
+}
+.stats-panel.active { display: block; }
+.stats-panel h3 {
+  font-family: 'Cinzel', serif;
+  color: var(--gold);
+  margin-bottom: 1rem;
+}
+.stats-panel .close-btn {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+.stat-label { color: var(--text-dim); }
+.stat-value { color: var(--text-bright); font-weight: 600; }
+
+/* Share box */
+.share-box {
+  max-width: 600px;
+  margin: 1rem auto;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+.share-box code {
+  background: var(--bg-card);
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+  color: var(--accent);
+  font-size: 0.85rem;
+}
+
+/* Loading */
+.loading {
+  text-align: center;
+  padding: 4rem;
+  font-family: 'Cinzel', serif;
+  color: var(--text-dim);
+}
+.loading::after {
+  content: '';
+  animation: dots 1.5s infinite;
+}
+@keyframes dots {
+  0% { content: '.'; }
+  33% { content: '..'; }
+  66% { content: '...'; }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .header h1 { font-size: 1.5rem; }
+  .round { min-width: 170px; }
+  .bracket-container { padding: 1rem 0.5rem; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1 id="tournament-name">Loading...</h1>
+  <div id="status-badge" class="status-badge status-pending">Loading</div>
+</div>
+
+<div id="admin-bar" class="admin-bar" style="display:none;">
+  <h3>⚡ Admin Panel</h3>
+  <button id="start-btn" class="btn btn-gold" onclick="startTournament()">Start Tournament</button>
+  <p style="margin-top:0.5rem;font-size:0.75rem;color:var(--text-dim)">Click on any pending match to report scores</p>
+</div>
+
+<div id="share-box" class="share-box"></div>
+
+<div id="players-section" class="players-section" style="display:none;">
+  <h2>👥 Players (<span id="player-count">0</span>/<span id="max-players">16</span>)</h2>
+  <div id="player-list" class="player-list"></div>
+</div>
+
+<div id="bracket-container" class="bracket-container">
+  <div class="loading" id="loading">Loading bracket</div>
+</div>
+
+<!-- Score Modal -->
+<div class="modal-overlay" id="score-modal">
+  <div class="modal">
+    <h3>Report Match Result</h3>
+    <div class="modal-match-info">
+      <div class="modal-player">
+        <div class="name" id="modal-p1">Player 1</div>
+        <input type="number" id="modal-s1" min="0" value="0">
+      </div>
+      <div class="modal-vs">VS</div>
+      <div class="modal-player">
+        <div class="name" id="modal-p2">Player 2</div>
+        <input type="number" id="modal-s2" min="0" value="0">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-gold" onclick="submitScore()">Submit</button>
+    </div>
+  </div>
+</div>
+
+<!-- Stats Panel -->
+<div class="stats-panel" id="stats-panel">
+  <button class="close-btn" onclick="closeStats()">✕</button>
+  <h3 id="stats-name">Player Stats</h3>
+  <div id="stats-content"></div>
+</div>
+
+<script>
+const API = 'http://localhost:3001/api';
+const params = new URLSearchParams(window.location.search);
+const tournamentKey = params.get('key');
+const adminKey = params.get('admin');
+let tournament = null;
+let ws = null;
+let currentMatchId = null;
+
+const roundNames = {
+  1: { 16: 'Round of 16', 8: 'Quarter-finals', 4: 'Semi-finals', 2: 'Final' },
+  2: { 16: 'Quarter-finals', 8: 'Semi-finals', 4: 'Final' },
+  3: { 16: 'Semi-finals', 8: 'Final' },
+  4: { 16: 'Final' }
+};
+
+function getRoundName(round, format) {
+  const totalRounds = Math.log2(format);
+  const roundFromEnd = totalRounds - round;
+  if (roundFromEnd === 0) return 'Final';
+  if (roundFromEnd === 1) return 'Semi-finals';
+  if (roundFromEnd === 2) return 'Quarter-finals';
+  return 'Round of ' + Math.pow(2, totalRounds - round + 1);
+}
+
+async function loadTournament() {
+  if (!tournamentKey) {
+    document.getElementById('loading').textContent = 'No tournament key provided. Add ?key=XXXXX to the URL.';
+    return;
+  }
+  try {
+    const res = await fetch(`${API}/tournaments/${tournamentKey}`);
+    if (!res.ok) throw new Error('Not found');
+    tournament = await res.json();
+    render();
+    connectWS();
+  } catch (e) {
+    document.getElementById('loading').textContent = 'Tournament not found.';
+  }
+}
+
+function connectWS() {
+  try {
+    ws = new WebSocket(`ws://localhost:3001`);
+    ws.onopen = () => ws.send(JSON.stringify({ type: 'subscribe', key: tournamentKey }));
+    ws.onmessage = (e) => {
+      try {
+        const msg = JSON.parse(e.data);
+        if (msg.type === 'bracket_update' && msg.tournament) {
+          tournament = msg.tournament;
+          render();
+        }
+      } catch (err) {}
+    };
+    ws.onclose = () => setTimeout(connectWS, 3000);
+  } catch (e) {}
+}
+
+function render() {
+  if (!tournament) return;
+
+  // Header
+  document.getElementById('tournament-name').textContent = tournament.name;
+  const badge = document.getElementById('status-badge');
+  badge.textContent = tournament.status.toUpperCase();
+  badge.className = 'status-badge status-' + tournament.status;
+
+  // Share box
+  const shareBox = document.getElementById('share-box');
+  const url = window.location.origin + window.location.pathname;
+  shareBox.innerHTML = `Share link: <code>${url}?key=${tournamentKey}</code>`;
+
+  // Admin bar
+  const adminBar = document.getElementById('admin-bar');
+  if (adminKey) {
+    adminBar.style.display = 'block';
+    const startBtn = document.getElementById('start-btn');
+    startBtn.style.display = tournament.status === 'pending' ? 'inline-block' : 'none';
+    startBtn.disabled = tournament.players.length < 2;
+  }
+
+  if (tournament.status === 'pending') {
+    renderPlayerList();
+    document.getElementById('bracket-container').innerHTML = '';
+  } else {
+    document.getElementById('players-section').style.display = 'none';
+    renderBracket();
+  }
+}
+
+function renderPlayerList() {
+  const section = document.getElementById('players-section');
+  section.style.display = 'block';
+  const format = parseInt(tournament.format) || 16;
+  document.getElementById('player-count').textContent = tournament.players.length;
+  document.getElementById('max-players').textContent = format;
+
+  const list = document.getElementById('player-list');
+  list.innerHTML = tournament.players.map(p =>
+    `<div class="player-chip" onclick="showStats('${p.username}')">${p.username}</div>`
+  ).join('');
+}
+
+function renderBracket() {
+  const container = document.getElementById('bracket-container');
+  const format = parseInt(tournament.format) || 16;
+  const totalRounds = Math.log2(format);
+  const matches = tournament.matches || [];
+
+  let html = '';
+
+  for (let round = 1; round <= totalRounds; round++) {
+    const roundMatches = matches.filter(m => m.round === round).sort((a, b) => a.match_number - b.match_number);
+    const roundName = getRoundName(round, format);
+
+    // Connector column before (except first round)
+    if (round > 1) {
+      const prevMatches = matches.filter(m => m.round === round - 1).length;
+      html += '<div class="connector-col">';
+      for (let i = 0; i < prevMatches; i++) {
+        html += `<div class="connector ${i % 2 === 0 ? 'connector-top' : 'connector-bottom'}"></div>`;
+      }
+      html += '</div>';
+    }
+
+    html += '<div class="round">';
+    html += `<div class="round-title">${roundName}</div>`;
+
+    for (const match of roundMatches) {
+      const isActive = match.status === 'pending' && match.player1_id && match.player2_id;
+      const isFinished = match.status === 'finished';
+      const canClick = adminKey && isActive;
+
+      html += `<div class="match-card ${isActive ? 'active' : ''} ${isFinished ? 'finished' : ''} ${canClick ? 'admin-clickable' : ''}"
+        ${canClick ? `onclick="openScoreModal(${match.id}, '${match.player1_name || 'TBD'}', '${match.player2_name || 'TBD'}')"` : ''}>`;
+
+      // Player 1
+      html += renderMatchPlayer(match.player1_name, match.player1_score, match.winner_id && match.winner_id === match.player1_id, isFinished);
+      // Player 2
+      html += renderMatchPlayer(match.player2_name, match.player2_score, match.winner_id && match.winner_id === match.player2_id, isFinished);
+
+      html += '</div>';
+    }
+
+    html += '</div>';
+  }
+
+  // Champion section
+  const finalMatch = matches.find(m => m.round === totalRounds && m.status === 'finished');
+  html += '<div class="champion-section">';
+  if (finalMatch && finalMatch.winner_name) {
+    html += `<div class="trophy">🏆</div>`;
+    html += `<div class="champion-name">${finalMatch.winner_name}</div>`;
+    html += `<div class="champion-label">Champion</div>`;
+  } else {
+    html += `<div class="trophy" style="opacity:0.2">🏆</div>`;
+    html += `<div class="champion-name" style="opacity:0.3">TBD</div>`;
+    html += `<div class="champion-label">Champion</div>`;
+  }
+  html += '</div>';
+
+  container.innerHTML = html;
+}
+
+function renderMatchPlayer(name, score, isWinner, isFinished) {
+  const displayName = name || 'TBD';
+  const nameClass = name ? 'player-name' : 'player-name empty';
+  const playerClass = isWinner ? 'match-player winner' : 'match-player';
+  const scoreDisplay = isFinished ? (score ?? 0) : '—';
+  const clickHandler = name ? `onclick="event.stopPropagation(); showStats('${name}')"` : '';
+
+  return `<div class="${playerClass}">
+    <span class="${nameClass}" ${clickHandler}>${displayName}</span>
+    <span class="score">${scoreDisplay}</span>
+  </div>`;
+}
+
+async function startTournament() {
+  if (!adminKey) return;
+  const btn = document.getElementById('start-btn');
+  btn.disabled = true;
+  btn.textContent = 'Starting...';
+  try {
+    const res = await fetch(`${API}/tournaments/${tournamentKey}/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminKey })
+    });
+    const data = await res.json();
+    if (!res.ok) alert(data.error || 'Failed to start');
+  } catch (e) {
+    alert('Network error');
+  }
+  btn.textContent = 'Start Tournament';
+}
+
+function openScoreModal(matchId, p1Name, p2Name) {
+  currentMatchId = matchId;
+  document.getElementById('modal-p1').textContent = p1Name;
+  document.getElementById('modal-p2').textContent = p2Name;
+  document.getElementById('modal-s1').value = 0;
+  document.getElementById('modal-s2').value = 0;
+  document.getElementById('score-modal').classList.add('active');
+}
+
+function closeModal() {
+  document.getElementById('score-modal').classList.remove('active');
+  currentMatchId = null;
+}
+
+async function submitScore() {
+  if (!currentMatchId || !adminKey) return;
+  const s1 = parseInt(document.getElementById('modal-s1').value) || 0;
+  const s2 = parseInt(document.getElementById('modal-s2').value) || 0;
+  try {
+    const res = await fetch(`${API}/tournaments/${tournamentKey}/match/${currentMatchId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminKey, player1Score: s1, player2Score: s2 })
+    });
+    const data = await res.json();
+    if (!res.ok) alert(data.error || 'Failed');
+  } catch (e) {
+    alert('Network error');
+  }
+  closeModal();
+}
+
+async function showStats(username) {
+  const panel = document.getElementById('stats-panel');
+  const content = document.getElementById('stats-content');
+  document.getElementById('stats-name').textContent = username;
+  content.innerHTML = '<div style="color:var(--text-dim)">Loading...</div>';
+  panel.classList.add('active');
+
+  try {
+    const res = await fetch(`${API}/users/${username}/stats`);
+    const data = await res.json();
+    const s = data.stats || {};
+    content.innerHTML = `
+      <div class="stat-row"><span class="stat-label">Games Played</span><span class="stat-value">${s.games_played || 0}</span></div>
+      <div class="stat-row"><span class="stat-label">Games Won</span><span class="stat-value">${s.games_won || 0}</span></div>
+      <div class="stat-row"><span class="stat-label">Total Bitcoins</span><span class="stat-value">₿ ${s.total_bitcoins || 0}</span></div>
+      <div class="stat-row"><span class="stat-label">Tournaments Won</span><span class="stat-value">🏆 ${s.tournaments_won || 0}</span></div>
+      <div class="stat-row"><span class="stat-label">Win Rate</span><span class="stat-value">${s.games_played ? Math.round((s.games_won / s.games_played) * 100) : 0}%</span></div>
+    `;
+  } catch (e) {
+    content.innerHTML = '<div style="color:var(--red)">Failed to load stats</div>';
+  }
+}
+
+function closeStats() {
+  document.getElementById('stats-panel').classList.remove('active');
+}
+
+// Close modal on overlay click
+document.getElementById('score-modal').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('score-modal')) closeModal();
+});
+
+// Init
+loadTournament();
+</script>
+</body>
+</html>

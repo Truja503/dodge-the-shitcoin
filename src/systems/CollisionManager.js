@@ -50,18 +50,19 @@ export default class CollisionManager {
         const enemyObj = this.spawner.enemyObjects.find(e => e.sprite === enemySprite);
         if (!enemyObj) return;
 
+        const ex = enemySprite.x, ey = enemySprite.y;
         enemyObj.kill();
         this.spawner.enemyObjects = this.spawner.enemyObjects.filter(e => e !== enemyObj);
 
-        playerSprite.x += (playerSprite.x < enemySprite.x) ? -70 : 70;
-        playerSprite.y += (playerSprite.y < enemySprite.y) ? -70 : 70;
+        playerSprite.x += (playerSprite.x < ex) ? -70 : 70;
+        playerSprite.y += (playerSprite.y < ey) ? -70 : 70;
 
         this.scene.cameras.main.flash(100, 255, 255, 255);
         this.scene.cameras.main.shake(150, 0.01);
 
         this.player.canMove = false;
         this.scene.time.delayedCall(1000, () => {
-            if (this.player) this.player.canMove = true;
+            if (this.player && this.player.sprite && this.player.sprite.body) this.player.canMove = true;
         });
 
         this.gameScene.hitByEnemy(this.player);
@@ -83,13 +84,13 @@ export default class CollisionManager {
         if (!this.player.isInvincible) {
             this.player.canMove = false;
             this.scene.time.delayedCall(1000, () => {
-                if (this.player) this.player.canMove = true;
+                if (this.player && this.player.sprite && this.player.sprite.body) this.player.canMove = true;
             });
         }
         if (!this.otherPlayer.isInvincible) {
             this.otherPlayer.canMove = false;
             this.scene.time.delayedCall(1000, () => {
-                if (this.otherPlayer) this.otherPlayer.canMove = true;
+                if (this.otherPlayer && this.otherPlayer.sprite && this.otherPlayer.sprite.body) this.otherPlayer.canMove = true;
             });
         }
     }

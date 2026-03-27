@@ -25,5 +25,19 @@ export default class MenuScene extends Phaser.Scene {
         startButton.on("pointerdown", () => {
             this.scene.start("GameScene");
         });
+
+        const tournamentButton = this.add.text(this.scale.width / 2, this.scale.height - 240, "TOURNAMENT", {
+            fontFamily: "CinzelBold",
+            fontSize: "24px",
+            color: "#f5a623",
+            stroke: "#000",
+            strokeThickness: 4
+        }).setOrigin(0.5).setInteractive();
+
+        tournamentButton.on("pointerover", () => tournamentButton.setColor("#ffd700"));
+        tournamentButton.on("pointerout", () => tournamentButton.setColor("#f5a623"));
+        tournamentButton.on("pointerdown", () => {
+            window.open("tournament/join.html", "_blank");
+        });
     }
 }

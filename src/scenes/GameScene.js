@@ -259,7 +259,7 @@ export default class GameScene extends Phaser.Scene {
 
         playerObj.canMove = false;
         this.time.delayedCall(1000, () => {
-            if (playerObj) playerObj.canMove = true;
+            if (playerObj && playerObj.sprite && playerObj.sprite.body) playerObj.canMove = true;
         });
 
         this.hitByEnemy(playerObj);
@@ -291,7 +291,7 @@ export default class GameScene extends Phaser.Scene {
 
     // ── Golpe de enemy ───────────────────────────────────────────
     hitByEnemy(playerObj) {
-        if (!playerObj || !playerObj.sprite) return;
+        if (!playerObj || !playerObj.sprite || !playerObj.sprite.active) return;
 
         const playerId = playerObj === this.player ? "player1" : "player2";
 
@@ -305,10 +305,10 @@ export default class GameScene extends Phaser.Scene {
             player2Score.textContent = `Satoshi 2: ${this.bitcoinsCollected.player2}`;
         }
 
-        if (playerObj.sprite.body) playerObj.sprite.setVelocity(0, 0);
+        if (playerObj.sprite && playerObj.sprite.body) playerObj.sprite.setVelocity(0, 0);
         playerObj.canMove = false;
         this.time.delayedCall(1000, () => {
-            if (playerObj) playerObj.canMove = true;
+            if (playerObj && playerObj.sprite && playerObj.sprite.body) playerObj.canMove = true;
         });
     }
 
@@ -327,6 +327,25 @@ export default class GameScene extends Phaser.Scene {
         else if (this.bitcoinsCollected.player2 > this.bitcoinsCollected.player1) winner = "Jugador 2 gana!";
 
         this.add.text(GAME_WIDTH / 2 - 100, GAME_HEIGHT / 2, winner, { fontSize: "32px", color: "#fff" });
+
+        // Tournament auto-report
+        try {
+            const tKey = localStorage.getItem('tournamentKey');
+            const tAdmin = localStorage.getItem('tournamentAdminKey');
+            const tMatch = localStorage.getItem('tournamentMatchId');
+            if (tKey && tAdmin && tMatch) {
+                fetch(`http://localhost:3001/api/tournaments/${tKey}/match/${tMatch}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        adminKey: tAdmin,
+                        player1Score: this.bitcoinsCollected.player1,
+                        player2Score: this.bitcoinsCollected.player2
+                    })
+                }).catch(() => {});
+            }
+        } catch (e) { /* ignore */ }
+
         this.time.delayedCall(5000, () => this.scene.start("MenuScene"));
     }
 }
