@@ -7,6 +7,7 @@
     <title>Dodge the Shitcoin</title>
 
     <link rel="stylesheet" href="styles/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Space+Grotesk:wght@400;500;600;700&family=Orbitron:wght@400;500;700;900&display=swap" rel="stylesheet">
 
     <style>
         @font-face {
@@ -26,13 +27,22 @@
 <body>
 
     <!-- HEADER -->
-   <header class="game-header">
-    <div class="score-wrapper">
-        <span id="player1-score">Satoshi 1: 0</span>
-        <span class="divider">✦</span>
-        <span id="player2-score">Satoshi 2: 0</span>
-    </div>
-</header>
+    <header class="game-header">
+        <div class="score-wrapper">
+            <div class="score-block p1">
+                <span class="score-label">Player 1</span>
+                <span class="score-value" id="player1-score">0</span>
+            </div>
+            <div class="timer-block">
+                <span class="timer-label">TIME</span>
+                <span class="timer-value" id="game-timer">1:30</span>
+            </div>
+            <div class="score-block p2">
+                <span class="score-label">Player 2</span>
+                <span class="score-value" id="player2-score">0</span>
+            </div>
+        </div>
+    </header>
     <!-- CONTENEDOR DEL JUEGO -->
     <div id="game-container"></div>
 
@@ -41,7 +51,8 @@
     (function() {
         const user = JSON.parse(localStorage.getItem('dts_user') || '{}');
         if (user.username) {
-            document.getElementById('player1-score').textContent = user.username;
+            const label = document.querySelector('.score-block.p1 .score-label');
+            if (label) label.textContent = user.username;
         }
     })();
     </script>

@@ -1,9 +1,8 @@
 import Player from "../entities/Player.js";
 import Player2 from "../entities/Player2.js";
 import Spawner from "../systems/Spawner.js";
-import DifficultyManager from "../systems/DifficultyManager.js";
 import CollisionManager from "../systems/CollisionManager.js";
-import { GAME_WIDTH, GAME_HEIGHT } from "../utils/constants.js";
+import { GAME_WIDTH, GAME_HEIGHT, BASE_ENEMY_SPEED } from "../utils/constants.js";
 import Bitcoin from "../entities/Bitcoin.js";
 import { loadPlayerAssets, createPlayerAnimations } from "../animations/playerAnimations.js";
 import Dollar from "../entities/Dollar.js";
@@ -34,6 +33,10 @@ export default class GameScene extends Phaser.Scene {
     }
 
     create() {
+        // Re-fetch DOM refs (they might be stale after scene restart)
+        player1Score = document.getElementById("player1-score");
+        player2Score = document.getElementById("player2-score");
+
         // ── Grupos ───────────────────────────────────────────────
         this.dollars      = this.physics.add.group();
         this.thrownDollars = this.physics.add.group();
@@ -68,8 +71,25 @@ export default class GameScene extends Phaser.Scene {
         // ── Estado ───────────────────────────────────────────────
         this.bitcoinsCollected = { player1: 0, player2: 0 };
         this.collectedCount = 0;
-        this.totalBitcoins  = 21;
         this.gameStarted    = true;
+
+        // ── Timer (1.5 minutes) ──────────────────────────────────
+        this.matchDuration = 90000; // 1.5 minutes in ms
+        this.matchTimer = 0;
+        this.domTimer = document.getElementById('game-timer');
+        if (this.domTimer) {
+            this.domTimer.textContent = '1:30';
+            this.domTimer.classList.remove('urgent');
+        }
+
+        // ── Greed Mechanic ───────────────────────────────────────
+        this.recentCollections = [];
+        this.greedLevel = 0;
+        this._baseDifficultySpeed = BASE_ENEMY_SPEED;
+
+        // ── Greed overlay (red tint) ─────────────────────────────
+        this.greedOverlay = this.add.rectangle(0, 0, this.scale.width, this.scale.height, 0xff0000, 0)
+            .setOrigin(0, 0).setDepth(50).setScrollFactor(0);
 
         // ── Input ────────────────────────────────────────────────
         this.cursors  = this.input.keyboard.createCursorKeys();
@@ -89,17 +109,49 @@ export default class GameScene extends Phaser.Scene {
         this.player.canMove = true;
         header.style.display = "flex";
 
+        // Reset score display
+        if (player1Score) player1Score.textContent = '0';
+        if (player2Score) player2Score.textContent = '0';
+
         // ── Gamepad ──────────────────────────────────────────────
         this.input.gamepad.once('connected', (pad) => {
             this.player.controller = true;
         });
 
-        // ── Spawner y dificultad ─────────────────────────────────
-        this.spawner    = new Spawner(this);
-        this.difficulty = new DifficultyManager(this.spawner);
+        // ── Spawner ──────────────────────────────────────────────
+        this.spawner = new Spawner(this);
+        this.spawner.currentEnemySpeed = BASE_ENEMY_SPEED;
 
-        this.time.addEvent({ delay: 500,  loop: true, callback: () => this.spawner.spawnEnemy() });
-        this.time.addEvent({ delay: 6000, loop: true, callback: () => this.difficulty.increaseDifficulty() });
+        // ── Scalable Difficulty ──────────────────────────────────
+        this.enemySpawnDelay = 800; // start slower
+
+        this.enemySpawnEvent = this.time.addEvent({
+            delay: this.enemySpawnDelay,
+            loop: true,
+            callback: () => this.spawner.spawnEnemy()
+        });
+
+        // Progressive difficulty: every 5 seconds
+        this.time.addEvent({
+            delay: 5000,
+            loop: true,
+            callback: () => {
+                // Increase base difficulty speed
+                this._baseDifficultySpeed += 30;
+
+                // Decrease spawn interval (faster spawning) — minimum 200ms
+                if (this.enemySpawnDelay > 200) {
+                    this.enemySpawnDelay -= 30;
+                    // Recreate the spawn timer with new delay
+                    if (this.enemySpawnEvent) this.enemySpawnEvent.remove();
+                    this.enemySpawnEvent = this.time.addEvent({
+                        delay: this.enemySpawnDelay,
+                        loop: true,
+                        callback: () => this.spawner.spawnEnemy()
+                    });
+                }
+            }
+        });
 
         // Dólar: cada 8s si no hay uno activo
         this.time.addEvent({ delay: 8000, loop: true, callback: () => this._spawnDollarIfNone() });
@@ -108,7 +160,7 @@ export default class GameScene extends Phaser.Scene {
         // Orange Pill: primer spawn a los 15s
         this.time.delayedCall(15000, () => this._spawnOrangePill());
 
-        // 21 bitcoins
+        // Infinite bitcoins — spawn first one
         this.spawnNextBitcoin();
 
         // ── Colisiones ───────────────────────────────────────────
@@ -129,7 +181,6 @@ export default class GameScene extends Phaser.Scene {
         this.physics.add.overlap(
             this.thrownDollars, this.player.sprite,
             (a, b) => {
-                // Phaser puede invertir el orden — encontrar cuál es el proyectil
                 const proj = this.thrownDollars.contains(a) ? a : b;
                 this._dollarHitPlayer(proj, this.player);
             },
@@ -162,6 +213,25 @@ export default class GameScene extends Phaser.Scene {
     update() {
         if (!this.gameStarted) return;
 
+        // ── Match Timer ──────────────────────────────────────────
+        this.matchTimer += this.game.loop.delta;
+        const remaining = Math.max(0, this.matchDuration - this.matchTimer);
+        const sec = Math.ceil(remaining / 1000);
+        if (this.domTimer) {
+            this.domTimer.textContent = Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0');
+            if (remaining <= 30000) {
+                this.domTimer.classList.add('urgent');
+            }
+        }
+        if (remaining <= 0) {
+            this.endGame();
+            return;
+        }
+
+        // ── Greed update ─────────────────────────────────────────
+        this._updateGreed();
+        this.spawner.currentEnemySpeed = this._baseDifficultySpeed + (this.greedLevel * 80);
+
         const pad = this.input.gamepad.getPad(0);
         this.player.update(this.cursors, pad);
         this.player2.update(this.wasdKeys);
@@ -186,6 +256,30 @@ export default class GameScene extends Phaser.Scene {
                 proj.y < -60 || proj.y > this.scale.height + 60
             )) proj.destroy();
         });
+    }
+
+    // ── Greed Mechanic ───────────────────────────────────────────
+    _updateGreed() {
+        const now = Date.now();
+        this.recentCollections = this.recentCollections.filter(t => now - t < 10000);
+        const recentCount = this.recentCollections.filter(t => now - t < 5000).length;
+
+        if (recentCount >= 4) {
+            this.greedLevel = 2;
+        } else if (recentCount >= 2) {
+            this.greedLevel = 1;
+        } else {
+            this.greedLevel = 0;
+        }
+
+        // Visual feedback: tint the screen slightly red when greedy
+        if (this.greedLevel >= 2 && this.greedOverlay) {
+            this.greedOverlay.setAlpha(0.08);
+        } else if (this.greedLevel === 1 && this.greedOverlay) {
+            this.greedOverlay.setAlpha(0.03);
+        } else if (this.greedOverlay) {
+            this.greedOverlay.setAlpha(0);
+        }
     }
 
     // ── Spawn dólar (max 1 en pantalla) ─────────────────────────
@@ -278,22 +372,30 @@ export default class GameScene extends Phaser.Scene {
         bitcoin.destroy();
         this.collectedCount++;
 
+        // Track for greed mechanic
+        this.recentCollections.push(Date.now());
+
         if (player === "player1") {
             this.bitcoinsCollected.player1++;
-            player1Score.textContent = `Satoshi 1: ${this.bitcoinsCollected.player1}`;
-            const el = document.getElementById("player1-score");
-            el.classList.add("score-pop");
-            setTimeout(() => el.classList.remove("score-pop"), 200);
+            if (player1Score) {
+                player1Score.textContent = this.bitcoinsCollected.player1;
+                player1Score.classList.remove("score-pop");
+                // Force reflow for re-triggering animation
+                void player1Score.offsetWidth;
+                player1Score.classList.add("score-pop");
+            }
         } else {
             this.bitcoinsCollected.player2++;
-            player2Score.textContent = `Satoshi 2: ${this.bitcoinsCollected.player2}`;
+            if (player2Score) {
+                player2Score.textContent = this.bitcoinsCollected.player2;
+                player2Score.classList.remove("score-pop");
+                void player2Score.offsetWidth;
+                player2Score.classList.add("score-pop");
+            }
         }
 
-        if (this.collectedCount < this.totalBitcoins) {
-            this.spawnNextBitcoin();
-        } else {
-            this.endGame();
-        }
+        // Always spawn next bitcoin (infinite)
+        this.spawnNextBitcoin();
     }
 
     // ── Golpe de enemy ───────────────────────────────────────────
@@ -307,9 +409,9 @@ export default class GameScene extends Phaser.Scene {
         }
 
         if (playerId === "player1") {
-            player1Score.textContent = `Satoshi 1: ${this.bitcoinsCollected.player1}`;
+            if (player1Score) player1Score.textContent = this.bitcoinsCollected.player1;
         } else {
-            player2Score.textContent = `Satoshi 2: ${this.bitcoinsCollected.player2}`;
+            if (player2Score) player2Score.textContent = this.bitcoinsCollected.player2;
         }
 
         if (playerObj.sprite && playerObj.sprite.body) playerObj.sprite.setVelocity(0, 0);
@@ -320,7 +422,6 @@ export default class GameScene extends Phaser.Scene {
     }
 
     spawnNextBitcoin() {
-        if (this.collectedCount >= this.totalBitcoins) return;
         const x = Phaser.Math.Between(50, this.scale.width - 100);
         const y = Phaser.Math.Between(50, this.scale.height - 100);
         const btc = new Bitcoin(this, x, y);
@@ -329,11 +430,33 @@ export default class GameScene extends Phaser.Scene {
 
     endGame() {
         this.gameStarted = false;
-        let winner = "Empate";
-        if (this.bitcoinsCollected.player1 > this.bitcoinsCollected.player2) winner = "Jugador 1 gana!";
-        else if (this.bitcoinsCollected.player2 > this.bitcoinsCollected.player1) winner = "Jugador 2 gana!";
 
-        this.add.text(GAME_WIDTH / 2 - 100, GAME_HEIGHT / 2, winner, { fontSize: "32px", color: "#fff" });
+        let winner = "Draw!";
+        let winColor = "#e2e8f0";
+        if (this.bitcoinsCollected.player1 > this.bitcoinsCollected.player2) {
+            winner = "Player 1 Wins!";
+            winColor = "#38bdf8";
+        } else if (this.bitcoinsCollected.player2 > this.bitcoinsCollected.player1) {
+            winner = "Player 2 Wins!";
+            winColor = "#f5a623";
+        }
+
+        const winText = this.add.text(this.scale.width / 2, this.scale.height / 2 - 30, winner, {
+            fontFamily: "Orbitron",
+            fontSize: "42px",
+            color: winColor,
+            stroke: "#000",
+            strokeThickness: 6
+        }).setOrigin(0.5).setDepth(100);
+
+        const scoreText = this.add.text(this.scale.width / 2, this.scale.height / 2 + 30,
+            `${this.bitcoinsCollected.player1} — ${this.bitcoinsCollected.player2}`, {
+            fontFamily: "Orbitron",
+            fontSize: "28px",
+            color: "#94a3b8",
+            stroke: "#000",
+            strokeThickness: 4
+        }).setOrigin(0.5).setDepth(100);
 
         // Tournament auto-report
         try {
