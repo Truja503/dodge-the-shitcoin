@@ -366,7 +366,14 @@ function clearStatus() {
 
 function connectWS() {
   return new Promise((resolve, reject) => {
-    if (ws && ws.readyState === 1) { resolve(ws); return; }
+    if (ws && ws.readyState === 1) {
+      // Re-attach handler in case it was lost
+      ws.onmessage = (e) => { handleMessage(JSON.parse(e.data)); };
+      resolve(ws);
+      return;
+    }
+    // Close stale connections
+    if (ws) { try { ws.close(); } catch(e) {} ws = null; }
 
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${wsProtocol}//${window.location.hostname}:3001`;
@@ -441,10 +448,22 @@ function handleMessage(msg) {
 async function createRoom() {
   try {
     await connectWS();
-  } catch { return; }
+  } catch(e) {
+    showStatus('Cannot connect to server. Is it running on port 3001?', 'error');
+    return;
+  }
+
+  if (!ws || ws.readyState !== 1) {
+    showStatus('WebSocket not connected. Retrying...', 'error');
+    ws = null;
+    try { await connectWS(); } catch { return; }
+  }
 
   const username = getUsername();
+  console.log('Creating room as:', username);
   ws.send(JSON.stringify({ type: 'create_room', username }));
+  document.getElementById('create-btn').disabled = true;
+  document.getElementById('create-btn').textContent = 'Creating...';
 }
 
 async function joinRoom(code) {
