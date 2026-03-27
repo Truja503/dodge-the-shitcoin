@@ -319,6 +319,7 @@ export default class SoloScene extends Phaser.Scene {
 
     // ── Enemy hit player ─────────────────────────────────────────
     _hitEnemy(enemySprite) {
+        if (!this.gameStarted || this.lives <= 0) return;
         const enemyObj = enemySprite._enemyRef;
         if (!enemyObj) return;
 
@@ -366,6 +367,7 @@ export default class SoloScene extends Phaser.Scene {
 
         // Lose a life
         this.lives--;
+        if (this.lives < 0) this.lives = 0;
         this._updateLivesHUD();
 
         if (this.lives <= 0) {
