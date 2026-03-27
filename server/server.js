@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const http = require('http');
 const { getDb, run, get, all, save } = require('./db');
 const { setupWebSocket, broadcastBracketUpdate } = require('./ws');
+const { setupOnlineWS } = require('./online');
 
 const app = express();
 const server = http.createServer(app);
@@ -11,7 +12,8 @@ const server = http.createServer(app);
 app.use(cors({ origin: true }));
 app.use(express.json());
 
-setupWebSocket(server);
+const wss = setupWebSocket(server);
+setupOnlineWS(wss);
 
 // ── Helpers ──────────────────────────────────────────────────────
 function genKey(len = 6) {

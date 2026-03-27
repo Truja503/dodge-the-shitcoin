@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dodge the Shitcoin — Online 1v1</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Space+Grotesk:wght@400;500;600;700&family=Orbitron:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+@font-face { font-family: "Cinzel"; src: url("assets/fonts/cinzel/Cinzel-Regular.ttf") format("truetype"); }
+@font-face { font-family: "CinzelBold"; src: url("assets/fonts/cinzel/Cinzel-Bold.ttf") format("truetype"); }
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0b0f1a;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Cinzel', serif;
+  overflow: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse at 30% 50%, rgba(245,100,35,0.06) 0%, transparent 50%),
+              radial-gradient(ellipse at 70% 50%, rgba(245,166,35,0.05) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.lobby-box {
+  background: rgba(20, 25, 39, 0.95);
+  border: 1px solid rgba(60, 40, 20, 0.6);
+  border-radius: 20px;
+  padding: 2.5rem 2.5rem 2rem;
+  width: 420px;
+  max-width: 92vw;
+  backdrop-filter: blur(20px);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 80px rgba(245,100,35,0.08);
+  animation: fadeUp 0.5s ease-out;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.lobby-box h1 {
+  text-align: center;
+  font-family: 'CinzelBold', serif;
+  font-size: 1.8rem;
+  background: linear-gradient(135deg, #f56b23, #ffd700);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 20px rgba(245,100,35,0.3));
+  margin-bottom: 0.3rem;
+}
+
+.subtitle {
+  text-align: center;
+  color: #64748b;
+  font-size: 0.7rem;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin-bottom: 1.5rem;
+}
+
+/* Username input */
+.user-section {
+  margin-bottom: 1.5rem;
+}
+.user-section label {
+  display: block;
+  font-size: 0.7rem;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-bottom: 0.4rem;
+}
+.user-section input {
+  width: 100%;
+  padding: 0.7rem 1rem;
+  font-size: 0.95rem;
+  font-family: 'Cinzel', serif;
+  background: rgba(10, 14, 25, 0.9);
+  border: 1px solid #1e293b;
+  border-radius: 10px;
+  color: #f8fafc;
+  outline: none;
+  transition: all 0.2s;
+}
+.user-section input:focus {
+  border-color: #f56b23;
+  box-shadow: 0 0 15px rgba(245,100,35,0.15);
+}
+.user-section input::placeholder { color: #334155; }
+
+/* Tabs */
+.tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 1.5rem;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #2a1a0a;
+}
+.tab {
+  flex: 1;
+  padding: 0.7rem;
+  text-align: center;
+  font-family: 'CinzelBold', serif;
+  font-size: 0.8rem;
+  color: #64748b;
+  background: rgba(15,20,30,0.8);
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 2px;
+  border: none;
+}
+.tab.active {
+  color: #ffd700;
+  background: rgba(245,100,35,0.12);
+  text-shadow: 0 0 10px rgba(245,100,35,0.3);
+}
+.tab:hover:not(.active) { color: #c8a060; }
+
+/* Panels */
+.panel { display: none; }
+.panel.active { display: block; }
+
+/* Buttons */
+.action-btn {
+  width: 100%;
+  padding: 0.85rem;
+  font-family: 'CinzelBold', serif;
+  font-size: 1rem;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.3s;
+  background: linear-gradient(135deg, #f56b23, #b8500b);
+  color: #0b0f1a;
+}
+.action-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(245,100,35,0.3);
+}
+.action-btn:active { transform: translateY(0); }
+.action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Room code display */
+.room-code-display {
+  text-align: center;
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+  background: rgba(10, 14, 25, 0.8);
+  border: 1px solid #2a1a0a;
+  border-radius: 12px;
+}
+.room-code-display .code {
+  font-family: 'Orbitron', monospace;
+  font-size: 2.2rem;
+  color: #ffd700;
+  letter-spacing: 8px;
+  text-shadow: 0 0 20px rgba(255,215,0,0.3);
+  margin: 0.5rem 0;
+}
+.room-code-display .waiting {
+  color: #64748b;
+  font-size: 0.8rem;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+/* Join panel */
+.join-input {
+  display: flex;
+  gap: 0.8rem;
+  margin-bottom: 0;
+}
+.join-input input {
+  flex: 1;
+  padding: 0.7rem 1rem;
+  font-size: 1.1rem;
+  font-family: 'Orbitron', monospace;
+  background: rgba(10, 14, 25, 0.9);
+  border: 1px solid #1e293b;
+  border-radius: 10px;
+  color: #ffd700;
+  outline: none;
+  text-transform: uppercase;
+  letter-spacing: 4px;
+  text-align: center;
+}
+.join-input input:focus {
+  border-color: #f56b23;
+  box-shadow: 0 0 15px rgba(245,100,35,0.15);
+}
+.join-input input::placeholder { color: #334155; letter-spacing: 2px; font-size: 0.8rem; }
+
+/* Room list */
+.room-list {
+  margin-top: 1.5rem;
+}
+.room-list h3 {
+  color: #64748b;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-bottom: 0.8rem;
+}
+.room-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.6rem 1rem;
+  background: rgba(10, 14, 25, 0.6);
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.room-item:hover {
+  border-color: #f56b23;
+  background: rgba(245,100,35,0.05);
+}
+.room-item .host-name {
+  color: #c8a060;
+  font-size: 0.85rem;
+}
+.room-item .room-id {
+  font-family: 'Orbitron', monospace;
+  color: #ffd700;
+  font-size: 0.75rem;
+  letter-spacing: 2px;
+}
+.no-rooms {
+  color: #334155;
+  font-size: 0.8rem;
+  text-align: center;
+  padding: 1rem;
+}
+
+/* Status */
+.status-msg {
+  text-align: center;
+  font-size: 0.8rem;
+  margin-top: 1rem;
+  min-height: 1.2rem;
+}
+.status-msg.error { color: #ef4444; }
+.status-msg.success { color: #22c55e; }
+.status-msg.info { color: #64748b; }
+
+/* Back link */
+.back-link {
+  display: block;
+  text-align: center;
+  margin-top: 1.5rem;
+  color: #4a3a20;
+  font-size: 0.75rem;
+  text-decoration: none;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  transition: color 0.2s;
+}
+.back-link:hover { color: #c8a060; }
+</style>
+</head>
+<body>
+
+<div class="lobby-box">
+  <h1>⚡ Online 1v1</h1>
+  <div class="subtitle">Peer-to-Peer Bitcoin Arena</div>
+
+  <div class="user-section">
+    <label>Your Name</label>
+    <input type="text" id="username" placeholder="satoshi" maxlength="20" />
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="showPanel('create')">Create Room</button>
+    <button class="tab" onclick="showPanel('join')">Join Room</button>
+  </div>
+
+  <!-- Create Room Panel -->
+  <div class="panel active" id="create-panel">
+    <button class="action-btn" id="create-btn" onclick="createRoom()">Create Room</button>
+    <div id="room-code-area" style="display:none">
+      <div class="room-code-display">
+        <div style="color:#64748b; font-size:0.7rem; letter-spacing:2px; text-transform:uppercase;">Room Code</div>
+        <div class="code" id="code-display"></div>
+        <div class="waiting" id="waiting-msg">Waiting for opponent…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Join Room Panel -->
+  <div class="panel" id="join-panel">
+    <div class="join-input">
+      <input type="text" id="room-code-input" placeholder="CODE" maxlength="6" />
+      <button class="action-btn" style="width:auto; padding:0.7rem 1.5rem;" onclick="joinRoom()">Join</button>
+    </div>
+  </div>
+
+  <!-- Room List -->
+  <div class="room-list">
+    <h3>Open Rooms</h3>
+    <div id="rooms-container">
+      <div class="no-rooms">No rooms available</div>
+    </div>
+  </div>
+
+  <div class="status-msg" id="status-msg"></div>
+
+  <a href="index.html" class="back-link">← Back to Menu</a>
+</div>
+
+<script>
+let ws = null;
+let roomId = null;
+let isHost = false;
+let refreshInterval = null;
+
+// Pre-fill username from localStorage
+const user = JSON.parse(localStorage.getItem('dts_user') || '{}');
+if (user.username) {
+  document.getElementById('username').value = user.username;
+}
+
+function getUsername() {
+  const name = document.getElementById('username').value.trim();
+  return name || 'Guest_' + Math.floor(Math.random() * 1000);
+}
+
+function showPanel(panel) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(panel + '-panel').classList.add('active');
+  const tabs = document.querySelectorAll('.tab');
+  if (panel === 'create') tabs[0].classList.add('active');
+  else tabs[1].classList.add('active');
+  clearStatus();
+}
+
+function showStatus(msg, type) {
+  const el = document.getElementById('status-msg');
+  el.textContent = msg;
+  el.className = 'status-msg ' + type;
+}
+
+function clearStatus() {
+  document.getElementById('status-msg').textContent = '';
+}
+
+function connectWS() {
+  return new Promise((resolve, reject) => {
+    if (ws && ws.readyState === 1) { resolve(ws); return; }
+
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${wsProtocol}//${window.location.hostname}:3001`;
+    ws = new WebSocket(wsUrl);
+
+    ws.onopen = () => {
+      listRooms();
+      resolve(ws);
+    };
+
+    ws.onmessage = (e) => {
+      const msg = JSON.parse(e.data);
+      handleMessage(msg);
+    };
+
+    ws.onerror = () => {
+      showStatus('Server offline — run: cd server && node server.js', 'error');
+      reject();
+    };
+
+    ws.onclose = () => {
+      ws = null;
+      if (refreshInterval) { clearInterval(refreshInterval); refreshInterval = null; }
+    };
+  });
+}
+
+function handleMessage(msg) {
+  switch (msg.type) {
+    case 'room_created':
+      roomId = msg.roomId;
+      isHost = true;
+      document.getElementById('create-btn').style.display = 'none';
+      document.getElementById('room-code-area').style.display = 'block';
+      document.getElementById('code-display').textContent = msg.roomId;
+      showStatus('Room created! Share the code with your opponent.', 'success');
+      break;
+
+    case 'opponent_joined':
+      document.getElementById('waiting-msg').textContent = msg.username + ' joined!';
+      document.getElementById('waiting-msg').style.color = '#4ade80';
+      break;
+
+    case 'match_start':
+      // Store match data and redirect
+      const username = getUsername();
+      const matchData = {
+        isHost,
+        roomId: msg.roomId,
+        username,
+        opponentName: isHost ? msg.clientUser : msg.hostUser,
+        wsUrl: `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.hostname}:3001`
+      };
+      sessionStorage.setItem('online_match', JSON.stringify(matchData));
+      // Detach ws so it doesn't close on navigation
+      ws.onclose = null;
+      ws.onmessage = null;
+      ws.onerror = null;
+      window.location.href = 'index.html?mode=online';
+      break;
+
+    case 'room_list':
+      renderRooms(msg.rooms);
+      break;
+
+    case 'error':
+      showStatus(msg.message || 'Error', 'error');
+      break;
+  }
+}
+
+async function createRoom() {
+  try {
+    await connectWS();
+  } catch { return; }
+
+  const username = getUsername();
+  ws.send(JSON.stringify({ type: 'create_room', username }));
+}
+
+async function joinRoom(code) {
+  try {
+    await connectWS();
+  } catch { return; }
+
+  const roomCode = code || document.getElementById('room-code-input').value.trim().toUpperCase();
+  if (!roomCode || roomCode.length < 4) {
+    showStatus('Enter a valid room code', 'error');
+    return;
+  }
+
+  isHost = false;
+  roomId = roomCode;
+  const username = getUsername();
+  ws.send(JSON.stringify({ type: 'join_room', roomId: roomCode, username }));
+  showStatus('Joining room...', 'info');
+}
+
+function listRooms() {
+  if (ws && ws.readyState === 1) {
+    ws.send(JSON.stringify({ type: 'list_rooms' }));
+  }
+}
+
+function renderRooms(rooms) {
+  const container = document.getElementById('rooms-container');
+  if (!rooms || rooms.length === 0) {
+    container.innerHTML = '<div class="no-rooms">No rooms available</div>';
+    return;
+  }
+
+  container.innerHTML = rooms.map(r => `
+    <div class="room-item" onclick="joinRoom('${r.id}')">
+      <span class="host-name">⚔️ ${r.host}</span>
+      <span class="room-id">${r.id}</span>
+    </div>
+  `).join('');
+}
+
+// Auto-connect and refresh rooms
+connectWS().catch(() => {});
+refreshInterval = setInterval(() => {
+  if (ws && ws.readyState === 1) listRooms();
+}, 3000);
+
+// Auto-capitalize room code
+document.getElementById('room-code-input').addEventListener('input', function() {
+  this.value = this.value.toUpperCase();
+});
+
+// Enter key to join
+document.getElementById('room-code-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') joinRoom();
+});
+</script>
+</body>
+</html>
