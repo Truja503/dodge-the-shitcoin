@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Dodge the Shitcoin — Solo</title>
+    <style>
+        @font-face { font-family: "Cinzel"; src: url("assets/fonts/cinzel/Cinzel-Regular.ttf") format("truetype"); }
+        @font-face { font-family: "CinzelBold"; src: url("assets/fonts/cinzel/Cinzel-Bold.ttf") format("truetype"); }
+        * { margin: 0; padding: 0; touch-action: none; }
+        body { background: #0b0f1a; overflow: hidden; }
+        #solo-hud {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 10px 20px;
+            background: rgba(5,8,15,0.8); backdrop-filter: blur(6px);
+            border-bottom: 1px solid rgba(200,220,255,0.08);
+            font-family: CinzelBold, serif; color: #e6edf7;
+            text-shadow: 0 0 4px rgba(180,200,255,0.4);
+        }
+        #solo-hud .lives { font-size: 20px; letter-spacing: 4px; }
+        #solo-hud .timer { font-size: 22px; letter-spacing: 3px; color: #38bdf8; }
+        #solo-hud .btc-count { font-size: 18px; color: #f5a623; }
+        #solo-container { width: 100vw; height: 100vh; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.js"></script>
+</head>
+<body>
+    <div id="solo-hud">
+        <div class="lives" id="solo-lives">❤️❤️❤️</div>
+        <div class="timer" id="solo-timer">00:00</div>
+        <div class="btc-count" id="solo-btc">₿ 0</div>
+    </div>
+    <div id="solo-container"></div>
+    <script type="module" src="src/solo-main.js"></script>
+</body>
+</html>

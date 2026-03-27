@@ -39,5 +39,19 @@ export default class MenuScene extends Phaser.Scene {
         tournamentButton.on("pointerdown", () => {
             window.open("tournament/join.html", "_blank");
         });
+
+        const soloButton = this.add.text(this.scale.width / 2, this.scale.height - 180, "SOLO MODE", {
+            fontFamily: "CinzelBold",
+            fontSize: "24px",
+            color: "#38bdf8",
+            stroke: "#000",
+            strokeThickness: 4
+        }).setOrigin(0.5).setInteractive();
+
+        soloButton.on("pointerover", () => soloButton.setColor("#7dd3fc"));
+        soloButton.on("pointerout", () => soloButton.setColor("#38bdf8"));
+        soloButton.on("pointerdown", () => {
+            window.open("solo.html", "_self");
+        });
     }
 }
