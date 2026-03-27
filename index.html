@@ -36,6 +36,17 @@
     <!-- CONTENEDOR DEL JUEGO -->
     <div id="game-container"></div>
 
+    <script>
+    // Auth gate — redirect to login if no token
+    (function() {
+        const token = localStorage.getItem('dts_token');
+        if (!token) { window.location.href = 'login.html'; return; }
+        const user = JSON.parse(localStorage.getItem('dts_user') || '{}');
+        if (user.username) {
+            document.getElementById('player1-score').textContent = user.username;
+        }
+    })();
+    </script>
     <script type="module" src="src/main.js"></script>
 </body>
 

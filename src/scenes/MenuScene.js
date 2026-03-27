@@ -53,5 +53,34 @@ export default class MenuScene extends Phaser.Scene {
         soloButton.on("pointerdown", () => {
             window.open("solo.html", "_self");
         });
+
+        // Show logged-in user
+        const user = JSON.parse(localStorage.getItem('dts_user') || '{}');
+        if (user.username) {
+            this.add.text(this.scale.width / 2, 60, `⚡ ${user.username}`, {
+                fontFamily: "CinzelBold",
+                fontSize: "18px",
+                color: "#38bdf8",
+                stroke: "#000",
+                strokeThickness: 2
+            }).setOrigin(0.5);
+        }
+
+        // Logout
+        const logoutBtn = this.add.text(this.scale.width / 2, this.scale.height - 120, "LOGOUT", {
+            fontFamily: "Cinzel",
+            fontSize: "16px",
+            color: "#64748b",
+            stroke: "#000",
+            strokeThickness: 2
+        }).setOrigin(0.5).setInteractive();
+
+        logoutBtn.on("pointerover", () => logoutBtn.setColor("#ef4444"));
+        logoutBtn.on("pointerout", () => logoutBtn.setColor("#64748b"));
+        logoutBtn.on("pointerdown", () => {
+            localStorage.removeItem('dts_token');
+            localStorage.removeItem('dts_user');
+            window.location.href = 'login.html';
+        });
     }
 }

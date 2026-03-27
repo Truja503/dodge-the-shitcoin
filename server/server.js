@@ -76,12 +76,93 @@ function advanceWinner(tournamentId, round, matchNumber, winnerId, format) {
   }
 }
 
-// ── Users ────────────────────────────────────────────────────────
+// ── Auth helpers ─────────────────────────────────────────────────
+function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+  return `${salt}:${hash}`;
+}
+
+function verifyPassword(password, stored) {
+  const [salt, hash] = stored.split(':');
+  const test = crypto.scryptSync(password, salt, 64).toString('hex');
+  return test === hash;
+}
+
+function generateToken(userId, username) {
+  const payload = JSON.stringify({ id: userId, username, ts: Date.now() });
+  const hmac = crypto.createHmac('sha256', 'dodge-the-shitcoin-secret').update(payload).digest('hex');
+  return Buffer.from(payload).toString('base64') + '.' + hmac;
+}
+
+function verifyToken(token) {
+  if (!token) return null;
+  try {
+    const [b64, hmac] = token.split('.');
+    const payload = Buffer.from(b64, 'base64').toString();
+    const expected = crypto.createHmac('sha256', 'dodge-the-shitcoin-secret').update(payload).digest('hex');
+    if (hmac !== expected) return null;
+    return JSON.parse(payload);
+  } catch(e) { return null; }
+}
+
+// ── Auth: Register ───────────────────────────────────────────────
+app.post('/api/register', (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
+  const name = username.trim().slice(0, 20);
+  if (name.length < 2) return res.status(400).json({ error: 'Username must be at least 2 characters' });
+  if (password.length < 3) return res.status(400).json({ error: 'Password must be at least 3 characters' });
+
+  const existing = get('SELECT id FROM users WHERE username = ?', [name]);
+  if (existing) return res.status(409).json({ error: 'Username taken' });
+
+  const passHash = hashPassword(password);
+  const r = run('INSERT INTO users (username, password_hash) VALUES (?, ?)', [name, passHash]);
+  const userId = r.lastInsertRowid;
+  run('INSERT OR IGNORE INTO user_stats (user_id) VALUES (?)', [userId]);
+
+  const token = generateToken(userId, name);
+  res.json({ id: userId, username: name, token });
+});
+
+// ── Auth: Login ──────────────────────────────────────────────────
+app.post('/api/login', (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
+
+  const user = get('SELECT * FROM users WHERE username = ?', [username.trim()]);
+  if (!user || !user.password_hash) return res.status(401).json({ error: 'Invalid credentials' });
+
+  if (!verifyPassword(password, user.password_hash)) {
+    return res.status(401).json({ error: 'Invalid credentials' });
+  }
+
+  run('INSERT OR IGNORE INTO user_stats (user_id) VALUES (?)', [user.id]);
+  const token = generateToken(user.id, user.username);
+  res.json({ id: user.id, username: user.username, token });
+});
+
+// ── Auth: Verify (check if logged in) ───────────────────────────
+app.get('/api/me', (req, res) => {
+  const auth = req.headers.authorization;
+  const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
+  const payload = verifyToken(token);
+  if (!payload) return res.status(401).json({ error: 'Not authenticated' });
+
+  const user = get('SELECT id, username, created_at FROM users WHERE id = ?', [payload.id]);
+  if (!user) return res.status(401).json({ error: 'User not found' });
+
+  const stats = get('SELECT * FROM user_stats WHERE user_id = ?', [user.id]);
+  res.json({ ...user, stats: stats || {} });
+});
+
+// ── Users (legacy, still works for tournaments) ──────────────────
 app.post('/api/users', (req, res) => {
   const { username } = req.body;
   if (!username || username.trim().length < 1) return res.status(400).json({ error: 'Username required' });
   const name = username.trim().slice(0, 20);
-  let user = get('SELECT * FROM users WHERE username = ?', [name]);
+  let user = get('SELECT id, username FROM users WHERE username = ?', [name]);
   if (!user) {
     const r = run('INSERT INTO users (username) VALUES (?)', [name]);
     user = { id: r.lastInsertRowid, username: name };

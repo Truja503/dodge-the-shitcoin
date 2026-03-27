@@ -32,6 +32,9 @@
         <div class="btc-count" id="solo-btc">₿ 0</div>
     </div>
     <div id="solo-container"></div>
+    <script>
+    if (!localStorage.getItem('dts_token')) window.location.href = 'login.html';
+    </script>
     <script type="module" src="src/solo-main.js"></script>
 </body>
 </html>

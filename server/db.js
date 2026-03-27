@@ -21,6 +21,7 @@ async function getDb() {
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT UNIQUE NOT NULL,
+      password_hash TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
     CREATE TABLE IF NOT EXISTS tournaments (
@@ -59,6 +60,9 @@ async function getDb() {
       tournaments_won INTEGER DEFAULT 0
     );
   `);
+
+  // Migration: add password_hash if missing
+  try { db.run('ALTER TABLE users ADD COLUMN password_hash TEXT'); } catch(e) {}
 
   save();
   return db;
