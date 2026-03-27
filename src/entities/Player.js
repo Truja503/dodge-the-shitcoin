@@ -139,14 +139,13 @@ export default class Player {
             "dollar"
         );
         proj.setScale(0.04).setTint(0x00ff00).setDepth(15);
-        proj.body.setAllowGravity(true);
-        proj.body.setGravityY(300);  // arco parabólico
+        proj.body.setAllowGravity(false);
         proj._thrower = this;
 
-        // Lanzamiento: velocidad en dirección + impulso vertical hacia arriba
+        // Lanzamiento recto en la dirección del último movimiento
         proj.body.setVelocity(
             ndx * DOLLAR_THROW_SPEED,
-            ndy * DOLLAR_THROW_SPEED - 150  // arco hacia arriba
+            ndy * DOLLAR_THROW_SPEED
         );
 
         // Rotación visual mientras vuela

@@ -135,13 +135,13 @@ export default class Player2 {
             "dollar"
         );
         proj.setScale(0.04).setTint(0x00ff00).setDepth(15);
-        proj.body.setAllowGravity(true);
-        proj.body.setGravityY(300);
+        proj.body.setAllowGravity(false);
         proj._thrower = this;
 
+        // Lanzamiento recto en la dirección del último movimiento
         proj.body.setVelocity(
             ndx * DOLLAR_THROW_SPEED,
-            ndy * DOLLAR_THROW_SPEED - 150
+            ndy * DOLLAR_THROW_SPEED
         );
 
         this.scene.tweens.add({
