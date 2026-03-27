@@ -34,7 +34,8 @@ export default class SoloScene extends Phaser.Scene {
         this.lives          = 3;
         this.bitcoinCount   = 0;
         this.elapsedTime    = 0;
-        this.gameOver        = false;
+        this.gameOver       = false;
+        this.gameStarted    = true;
 
         // ── Grupos ───────────────────────────────────────────────
         this.dollars       = this.physics.add.group();
@@ -319,7 +320,7 @@ export default class SoloScene extends Phaser.Scene {
 
     // ── Enemy hit player ─────────────────────────────────────────
     _hitEnemy(enemySprite) {
-        if (!this.gameStarted || this.lives <= 0) return;
+        if (this.gameOver || this.lives <= 0) return;
         const enemyObj = enemySprite._enemyRef;
         if (!enemyObj) return;
 
