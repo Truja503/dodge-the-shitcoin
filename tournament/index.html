@@ -98,29 +98,41 @@ body {
 }
 .player-chip .seed { color: var(--text-dim); font-size: 0.7rem; }
 
-/* Bracket */
+/* Bracket — two halves converging to center trophy */
 .bracket-container {
   display: flex;
-  align-items: flex-start;
+  align-items: stretch;
   justify-content: center;
   gap: 0;
-  padding: 2rem 1rem;
-  min-height: 60vh;
+  padding: 2rem 0.5rem;
+  min-height: 70vh;
   overflow-x: auto;
 }
+.bracket-half {
+  display: flex;
+  align-items: stretch;
+}
+.bracket-half.left { flex-direction: row; }
+.bracket-half.right { flex-direction: row-reverse; }
+
 .round {
   display: flex;
   flex-direction: column;
   justify-content: space-around;
-  min-width: 220px;
   position: relative;
 }
+/* Rounds shrink as they get closer to center */
+.round.r1 { min-width: 200px; }
+.round.r2 { min-width: 180px; }
+.round.r3 { min-width: 170px; }
+.round.r4 { min-width: 160px; }
+
 .round-title {
   text-align: center;
   font-family: 'Cinzel', serif;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: var(--text-dim);
-  margin-bottom: 1rem;
+  margin-bottom: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 2px;
 }
@@ -232,31 +244,63 @@ body {
   border-width: 0 1px 1px 0;
   border-radius: 0 0 8px 0;
 }
+/* Mirror connectors for right half */
+.bracket-half.right .connector-top::before {
+  border-width: 1px 0 0 1px;
+  border-radius: 8px 0 0 0;
+  right: auto; left: 0;
+}
+.bracket-half.right .connector-bottom::before {
+  border-width: 0 0 1px 1px;
+  border-radius: 0 0 0 8px;
+  right: auto; left: 0;
+}
 
-/* Champion */
+/* Champion — center focal point */
 .champion-section {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-width: 180px;
-  padding: 1rem;
+  min-width: 160px;
+  padding: 1.5rem 1rem;
+  position: relative;
 }
-.trophy { font-size: 3rem; margin-bottom: 0.5rem; filter: drop-shadow(0 0 20px rgba(255,215,0,0.6)); }
+.trophy {
+  font-size: 5.5rem;
+  margin-bottom: 0.8rem;
+  filter: drop-shadow(0 0 40px rgba(255,215,0,0.8)) drop-shadow(0 0 80px rgba(255,215,0,0.4));
+  animation: trophy-glow 3s ease-in-out infinite;
+}
+@keyframes trophy-glow {
+  0%, 100% { filter: drop-shadow(0 0 30px rgba(255,215,0,0.6)) drop-shadow(0 0 60px rgba(255,215,0,0.3)); transform: scale(1); }
+  50% { filter: drop-shadow(0 0 50px rgba(255,215,0,1)) drop-shadow(0 0 100px rgba(255,215,0,0.5)); transform: scale(1.05); }
+}
 .champion-name {
   font-family: 'Cinzel', serif;
-  font-size: 1.3rem;
-  font-weight: 700;
+  font-size: 1.4rem;
+  font-weight: 900;
   color: var(--gold-bright);
   text-align: center;
-  text-shadow: 0 0 20px rgba(255,215,0,0.4);
+  text-shadow: 0 0 30px rgba(255,215,0,0.6), 0 0 60px rgba(255,215,0,0.3);
 }
 .champion-label {
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   text-transform: uppercase;
-  letter-spacing: 3px;
-  color: var(--text-dim);
-  margin-top: 0.3rem;
+  letter-spacing: 4px;
+  color: var(--gold-dim);
+  margin-top: 0.4rem;
+  font-family: 'Cinzel', serif;
+}
+/* Radial glow behind trophy */
+.champion-section::before {
+  content: '';
+  position: absolute;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,215,0,0.08) 0%, transparent 70%);
+  pointer-events: none;
 }
 
 /* Admin panel */
@@ -621,81 +665,117 @@ function renderPlayerList() {
 
 function renderBracket() {
   const container = document.getElementById('bracket-container');
-  const format = 16; // Always show 16-player bracket
+  const format = 16;
   const totalRounds = 4; // R16, QF, SF, Final
   const matches = tournament.matches || [];
   const players = tournament.players || [];
 
-  let html = '';
+  // Split matches into left half (matches 1-4 of R16, 1-2 of QF, 1 of SF)
+  // and right half (matches 5-8 of R16, 3-4 of QF, 2 of SF)
+  // Final is the center trophy match
 
-  for (let round = 1; round <= totalRounds; round++) {
-    const matchCount = format / Math.pow(2, round); // 8, 4, 2, 1
-    const realMatches = matches.filter(m => m.round === round).sort((a, b) => a.match_number - b.match_number);
-    const roundName = getRoundName(round, format);
+  function buildHalf(side) {
+    // side = 'left' or 'right'
+    // Left: first half of each round. Right: second half.
+    let html = '';
+    // Rounds to show per half: R16(4 matches), QF(2), SF(1)
+    const roundsPerHalf = [
+      { round: 1, count: 4, offset: side === 'left' ? 0 : 4 },
+      { round: 2, count: 2, offset: side === 'left' ? 0 : 2 },
+      { round: 3, count: 1, offset: side === 'left' ? 0 : 1 },
+    ];
 
-    // Connector column before (except first round)
-    if (round > 1) {
-      const prevMatchCount = format / Math.pow(2, round - 1);
-      html += '<div class="connector-col">';
-      for (let i = 0; i < prevMatchCount; i++) {
-        html += `<div class="connector ${i % 2 === 0 ? 'connector-top' : 'connector-bottom'}"></div>`;
+    for (let ri = 0; ri < roundsPerHalf.length; ri++) {
+      const { round, count, offset } = roundsPerHalf[ri];
+      const realMatches = matches.filter(m => m.round === round).sort((a, b) => a.match_number - b.match_number);
+      const roundName = getRoundName(round, format);
+
+      // Connector before (except first round)
+      if (ri > 0) {
+        const prevCount = roundsPerHalf[ri - 1].count;
+        html += '<div class="connector-col">';
+        for (let i = 0; i < prevCount; i++) {
+          html += `<div class="connector ${i % 2 === 0 ? 'connector-top' : 'connector-bottom'}"></div>`;
+        }
+        html += '</div>';
+      }
+
+      html += `<div class="round r${round}">`;
+      html += `<div class="round-title">${roundName}</div>`;
+
+      for (let i = 0; i < count; i++) {
+        const matchNum = offset + i + 1;
+        const match = realMatches.find(rm => rm.match_number === matchNum);
+
+        if (match) {
+          const isActive = match.status === 'pending' && match.player1_id && match.player2_id;
+          const isFinished = match.status === 'finished';
+          const canClick = adminKey && isActive;
+
+          html += `<div class="match-card ${isActive ? 'active' : ''} ${isFinished ? 'finished' : ''} ${canClick ? 'admin-clickable' : ''}"
+            ${canClick ? `onclick="openScoreModal(${match.id}, '${match.player1_name || 'Waiting...'}', '${match.player2_name || 'Waiting...'}')"` : ''}>`;
+          html += renderMatchPlayer(match.player1_name, match.player1_score, match.winner_id && match.winner_id === match.player1_id, isFinished);
+          html += renderMatchPlayer(match.player2_name, match.player2_score, match.winner_id && match.winner_id === match.player2_id, isFinished);
+          html += '</div>';
+        } else if (round === 1 && tournament.status === 'pending') {
+          const slot1 = (matchNum - 1) * 2;
+          const slot2 = (matchNum - 1) * 2 + 1;
+          const p1 = players[slot1] ? players[slot1].username : null;
+          const p2 = players[slot2] ? players[slot2].username : null;
+          html += `<div class="match-card waiting">`;
+          html += renderWaitingPlayer(p1);
+          html += renderWaitingPlayer(p2);
+          html += '</div>';
+        } else {
+          html += `<div class="match-card waiting">`;
+          html += renderWaitingPlayer(null);
+          html += renderWaitingPlayer(null);
+          html += '</div>';
+        }
       }
       html += '</div>';
     }
 
-    html += '<div class="round">';
-    html += `<div class="round-title">${roundName}</div>`;
-
-    for (let m = 1; m <= matchCount; m++) {
-      const match = realMatches.find(rm => rm.match_number === m);
-
-      if (match) {
-        // Real match exists
-        const isActive = match.status === 'pending' && match.player1_id && match.player2_id;
-        const isFinished = match.status === 'finished';
-        const canClick = adminKey && isActive;
-
-        html += `<div class="match-card ${isActive ? 'active' : ''} ${isFinished ? 'finished' : ''} ${canClick ? 'admin-clickable' : ''}"
-          ${canClick ? `onclick="openScoreModal(${match.id}, '${match.player1_name || 'Waiting...'}', '${match.player2_name || 'Waiting...'}')"` : ''}>`;
-
-        html += renderMatchPlayer(match.player1_name, match.player1_score, match.winner_id && match.winner_id === match.player1_id, isFinished);
-        html += renderMatchPlayer(match.player2_name, match.player2_score, match.winner_id && match.winner_id === match.player2_id, isFinished);
-        html += '</div>';
-      } else if (round === 1 && tournament.status === 'pending') {
-        // Pending tournament: show waiting slots with any joined players
-        const slot1 = (m - 1) * 2;
-        const slot2 = (m - 1) * 2 + 1;
-        const p1 = players[slot1] ? players[slot1].username : null;
-        const p2 = players[slot2] ? players[slot2].username : null;
-
-        html += `<div class="match-card waiting">`;
-        html += renderWaitingPlayer(p1);
-        html += renderWaitingPlayer(p2);
-        html += '</div>';
-      } else {
-        // Empty placeholder for later rounds
-        html += `<div class="match-card waiting">`;
-        html += renderWaitingPlayer(null);
-        html += renderWaitingPlayer(null);
-        html += '</div>';
-      }
-    }
-
+    // Connector before final (from SF)
+    html += '<div class="connector-col">';
+    html += `<div class="connector connector-top"></div>`;
     html += '</div>';
+
+    return html;
   }
 
-  // Champion section
-  const finalMatch = matches.find(m => m.round === totalRounds && m.status === 'finished');
+  // Build: LEFT half → TROPHY center → RIGHT half
+  let html = '';
+
+  // Left half (R16 matches 1-4 → QF 1-2 → SF 1)
+  html += '<div class="bracket-half left">';
+  html += buildHalf('left');
+  html += '</div>';
+
+  // Champion / Final in center
+  const finalMatch = matches.find(m => m.round === totalRounds);
   html += '<div class="champion-section">';
-  if (finalMatch && finalMatch.winner_name) {
+  if (finalMatch && finalMatch.status === 'finished' && finalMatch.winner_name) {
     html += `<div class="trophy">🏆</div>`;
     html += `<div class="champion-name">${finalMatch.winner_name}</div>`;
     html += `<div class="champion-label">Champion</div>`;
   } else {
-    html += `<div class="trophy" style="opacity:0.2">🏆</div>`;
+    // Show final match card above trophy
+    if (finalMatch && finalMatch.player1_name) {
+      html += `<div class="match-card" style="margin-bottom:1rem;min-width:160px;">`;
+      html += renderMatchPlayer(finalMatch.player1_name, finalMatch.player1_score, false, false);
+      html += renderMatchPlayer(finalMatch.player2_name, finalMatch.player2_score, false, false);
+      html += '</div>';
+    }
+    html += `<div class="trophy" style="opacity:0.3">🏆</div>`;
     html += `<div class="champion-name" style="opacity:0.3">???</div>`;
     html += `<div class="champion-label">Champion</div>`;
   }
+  html += '</div>';
+
+  // Right half (R16 matches 5-8 → QF 3-4 → SF 2) — reversed order
+  html += '<div class="bracket-half right">';
+  html += buildHalf('right');
   html += '</div>';
 
   container.innerHTML = html;
