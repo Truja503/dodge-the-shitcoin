@@ -19,8 +19,9 @@ export default class Player {
             'idle_1'
         );
         this.sprite.setScale(0.1);
-        this.sprite.body.setSize(500, 900);
-        this.sprite.body.setOffset(1000, 400);
+        // Hitbox: tighter, centered on character body
+        this.sprite.body.setSize(700, 1000);
+        this.sprite.body.setOffset(900, 300);
         this.canMove = true;
 
         this.dollarCount  = 0;

@@ -54,32 +54,36 @@ export default class MenuScene extends Phaser.Scene {
             window.open("solo.html", "_self");
         });
 
-        // Show logged-in user
+        // Show user or guest
         const user = JSON.parse(localStorage.getItem('dts_user') || '{}');
-        if (user.username) {
-            this.add.text(this.scale.width / 2, 60, `⚡ ${user.username}`, {
-                fontFamily: "CinzelBold",
-                fontSize: "18px",
-                color: "#38bdf8",
-                stroke: "#000",
-                strokeThickness: 2
-            }).setOrigin(0.5);
-        }
+        const isLoggedIn = !!user.username;
 
-        // Logout
-        const logoutBtn = this.add.text(this.scale.width / 2, this.scale.height - 120, "LOGOUT", {
+        this.add.text(this.scale.width / 2, 60, isLoggedIn ? `⚡ ${user.username}` : '⚡ Guest', {
+            fontFamily: "CinzelBold",
+            fontSize: "18px",
+            color: isLoggedIn ? "#38bdf8" : "#64748b",
+            stroke: "#000",
+            strokeThickness: 2
+        }).setOrigin(0.5);
+
+        // Login / Logout button
+        const authLabel = isLoggedIn ? "LOGOUT" : "LOGIN";
+        const authColor = isLoggedIn ? "#64748b" : "#22c55e";
+        const authBtn = this.add.text(this.scale.width / 2, this.scale.height - 120, authLabel, {
             fontFamily: "Cinzel",
             fontSize: "16px",
-            color: "#64748b",
+            color: authColor,
             stroke: "#000",
             strokeThickness: 2
         }).setOrigin(0.5).setInteractive();
 
-        logoutBtn.on("pointerover", () => logoutBtn.setColor("#ef4444"));
-        logoutBtn.on("pointerout", () => logoutBtn.setColor("#64748b"));
-        logoutBtn.on("pointerdown", () => {
-            localStorage.removeItem('dts_token');
-            localStorage.removeItem('dts_user');
+        authBtn.on("pointerover", () => authBtn.setColor(isLoggedIn ? "#ef4444" : "#4ade80"));
+        authBtn.on("pointerout", () => authBtn.setColor(authColor));
+        authBtn.on("pointerdown", () => {
+            if (isLoggedIn) {
+                localStorage.removeItem('dts_token');
+                localStorage.removeItem('dts_user');
+            }
             window.location.href = 'login.html';
         });
     }

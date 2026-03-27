@@ -9,7 +9,9 @@ export default class Enemy {
 
         this.sprite = scene.add.sprite(x, y, key);
         scene.physics.add.existing(this.sprite);
-        this.sprite.body.setCircle(this.sprite.width / 2);
+        // Circle hitbox: 40% of sprite width, centered
+        const r = Math.round(this.sprite.width * 0.4);
+        this.sprite.body.setCircle(r, this.sprite.width * 0.1, this.sprite.height * 0.1);
 
         // Scale: pasado explícitamente (split) o aleatorio (spawn)
         // Tamaño más pequeño: 0.06 a 0.12
