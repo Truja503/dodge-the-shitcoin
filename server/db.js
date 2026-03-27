@@ -73,10 +73,11 @@ function save() {
 // Helper wrappers that mimic better-sqlite3 API
 function run(sql, params = []) {
   db.run(sql, params);
-  save();
-  // Return lastInsertRowid
+  // Get lastInsertRowid BEFORE save (save exports and can reset state)
   const r = db.exec('SELECT last_insert_rowid() as id');
-  return { lastInsertRowid: r.length ? r[0].values[0][0] : 0 };
+  const lastId = r.length ? r[0].values[0][0] : 0;
+  save();
+  return { lastInsertRowid: lastId };
 }
 
 function get(sql, params = []) {

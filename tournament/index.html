@@ -145,6 +145,17 @@ body {
   box-shadow: var(--glow-gold);
   transform: translateY(-2px);
 }
+.match-card.waiting {
+  border-color: rgba(100,116,139,0.2);
+  opacity: 0.6;
+}
+.waiting-text {
+  animation: waiting-pulse 2s ease-in-out infinite;
+}
+@keyframes waiting-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
 
 @keyframes pulse-glow {
   0%, 100% { box-shadow: 0 0 10px rgba(56,189,248,0.2); }
@@ -584,13 +595,15 @@ function render() {
     startBtn.disabled = tournament.players.length < 2;
   }
 
+  // Always show players section if pending
   if (tournament.status === 'pending') {
     renderPlayerList();
-    document.getElementById('bracket-container').innerHTML = '';
   } else {
     document.getElementById('players-section').style.display = 'none';
-    renderBracket();
   }
+
+  // ALWAYS render bracket (even if pending, show waiting slots)
+  renderBracket();
 }
 
 function renderPlayerList() {
@@ -608,21 +621,23 @@ function renderPlayerList() {
 
 function renderBracket() {
   const container = document.getElementById('bracket-container');
-  const format = parseInt(tournament.format) || 16;
-  const totalRounds = Math.log2(format);
+  const format = 16; // Always show 16-player bracket
+  const totalRounds = 4; // R16, QF, SF, Final
   const matches = tournament.matches || [];
+  const players = tournament.players || [];
 
   let html = '';
 
   for (let round = 1; round <= totalRounds; round++) {
-    const roundMatches = matches.filter(m => m.round === round).sort((a, b) => a.match_number - b.match_number);
+    const matchCount = format / Math.pow(2, round); // 8, 4, 2, 1
+    const realMatches = matches.filter(m => m.round === round).sort((a, b) => a.match_number - b.match_number);
     const roundName = getRoundName(round, format);
 
     // Connector column before (except first round)
     if (round > 1) {
-      const prevMatches = matches.filter(m => m.round === round - 1).length;
+      const prevMatchCount = format / Math.pow(2, round - 1);
       html += '<div class="connector-col">';
-      for (let i = 0; i < prevMatches; i++) {
+      for (let i = 0; i < prevMatchCount; i++) {
         html += `<div class="connector ${i % 2 === 0 ? 'connector-top' : 'connector-bottom'}"></div>`;
       }
       html += '</div>';
@@ -631,20 +646,39 @@ function renderBracket() {
     html += '<div class="round">';
     html += `<div class="round-title">${roundName}</div>`;
 
-    for (const match of roundMatches) {
-      const isActive = match.status === 'pending' && match.player1_id && match.player2_id;
-      const isFinished = match.status === 'finished';
-      const canClick = adminKey && isActive;
+    for (let m = 1; m <= matchCount; m++) {
+      const match = realMatches.find(rm => rm.match_number === m);
 
-      html += `<div class="match-card ${isActive ? 'active' : ''} ${isFinished ? 'finished' : ''} ${canClick ? 'admin-clickable' : ''}"
-        ${canClick ? `onclick="openScoreModal(${match.id}, '${match.player1_name || 'TBD'}', '${match.player2_name || 'TBD'}')"` : ''}>`;
+      if (match) {
+        // Real match exists
+        const isActive = match.status === 'pending' && match.player1_id && match.player2_id;
+        const isFinished = match.status === 'finished';
+        const canClick = adminKey && isActive;
 
-      // Player 1
-      html += renderMatchPlayer(match.player1_name, match.player1_score, match.winner_id && match.winner_id === match.player1_id, isFinished);
-      // Player 2
-      html += renderMatchPlayer(match.player2_name, match.player2_score, match.winner_id && match.winner_id === match.player2_id, isFinished);
+        html += `<div class="match-card ${isActive ? 'active' : ''} ${isFinished ? 'finished' : ''} ${canClick ? 'admin-clickable' : ''}"
+          ${canClick ? `onclick="openScoreModal(${match.id}, '${match.player1_name || 'Waiting...'}', '${match.player2_name || 'Waiting...'}')"` : ''}>`;
 
-      html += '</div>';
+        html += renderMatchPlayer(match.player1_name, match.player1_score, match.winner_id && match.winner_id === match.player1_id, isFinished);
+        html += renderMatchPlayer(match.player2_name, match.player2_score, match.winner_id && match.winner_id === match.player2_id, isFinished);
+        html += '</div>';
+      } else if (round === 1 && tournament.status === 'pending') {
+        // Pending tournament: show waiting slots with any joined players
+        const slot1 = (m - 1) * 2;
+        const slot2 = (m - 1) * 2 + 1;
+        const p1 = players[slot1] ? players[slot1].username : null;
+        const p2 = players[slot2] ? players[slot2].username : null;
+
+        html += `<div class="match-card waiting">`;
+        html += renderWaitingPlayer(p1);
+        html += renderWaitingPlayer(p2);
+        html += '</div>';
+      } else {
+        // Empty placeholder for later rounds
+        html += `<div class="match-card waiting">`;
+        html += renderWaitingPlayer(null);
+        html += renderWaitingPlayer(null);
+        html += '</div>';
+      }
     }
 
     html += '</div>';
@@ -659,7 +693,7 @@ function renderBracket() {
     html += `<div class="champion-label">Champion</div>`;
   } else {
     html += `<div class="trophy" style="opacity:0.2">🏆</div>`;
-    html += `<div class="champion-name" style="opacity:0.3">TBD</div>`;
+    html += `<div class="champion-name" style="opacity:0.3">???</div>`;
     html += `<div class="champion-label">Champion</div>`;
   }
   html += '</div>';
@@ -667,9 +701,22 @@ function renderBracket() {
   container.innerHTML = html;
 }
 
+function renderWaitingPlayer(name) {
+  if (name) {
+    return `<div class="match-player">
+      <span class="player-name" onclick="event.stopPropagation(); showStats('${name}')">${name}</span>
+      <span class="score">—</span>
+    </div>`;
+  }
+  return `<div class="match-player">
+    <span class="player-name empty waiting-text">Waiting for player...</span>
+    <span class="score">—</span>
+  </div>`;
+}
+
 function renderMatchPlayer(name, score, isWinner, isFinished) {
-  const displayName = name || 'TBD';
-  const nameClass = name ? 'player-name' : 'player-name empty';
+  const displayName = name || 'Waiting for player...';
+  const nameClass = name ? 'player-name' : 'player-name empty waiting-text';
   const playerClass = isWinner ? 'match-player winner' : 'match-player';
   const scoreDisplay = isFinished ? (score ?? 0) : '—';
   const clickHandler = name ? `onclick="event.stopPropagation(); showStats('${name}')"` : '';
@@ -745,7 +792,6 @@ async function showStats(username) {
     content.innerHTML = `
       <div class="stat-row"><span class="stat-label">Games Played</span><span class="stat-value">${s.games_played || 0}</span></div>
       <div class="stat-row"><span class="stat-label">Games Won</span><span class="stat-value">${s.games_won || 0}</span></div>
-      <div class="stat-row"><span class="stat-label">Total Bitcoins</span><span class="stat-value">₿ ${s.total_bitcoins || 0}</span></div>
       <div class="stat-row"><span class="stat-label">Tournaments Won</span><span class="stat-value">🏆 ${s.tournaments_won || 0}</span></div>
       <div class="stat-row"><span class="stat-label">Win Rate</span><span class="stat-value">${s.games_played ? Math.round((s.games_won / s.games_played) * 100) : 0}%</span></div>
     `;

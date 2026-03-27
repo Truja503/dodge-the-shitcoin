@@ -1,4 +1,4 @@
-const MIN_SPLIT_SCALE = 0.07;  // debajo de esto no se divide, muere
+const MIN_SPLIT_SCALE = 0.10;  // solo los grandes se dividen
 
 export default class Enemy {
     constructor(scene, x, y, vx, vy, scale) {
@@ -12,7 +12,8 @@ export default class Enemy {
         this.sprite.body.setCircle(this.sprite.width / 2);
 
         // Scale: pasado explícitamente (split) o aleatorio (spawn)
-        this.enemyScale = scale || Phaser.Math.FloatBetween(0.11, 0.17);
+        // Tamaño más pequeño: 0.06 a 0.12
+        this.enemyScale = scale || Phaser.Math.FloatBetween(0.06, 0.12);
         this.sprite.setScale(this.enemyScale);
 
         this.rotationSpeed = Phaser.Math.FloatBetween(0.01, 0.04);
