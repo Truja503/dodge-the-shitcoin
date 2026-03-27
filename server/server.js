@@ -85,8 +85,8 @@ app.post('/api/users', (req, res) => {
   if (!user) {
     const r = run('INSERT INTO users (username) VALUES (?)', [name]);
     user = { id: r.lastInsertRowid, username: name };
-    run('INSERT INTO user_stats (user_id) VALUES (?)', [user.id]);
   }
+  run('INSERT OR IGNORE INTO user_stats (user_id) VALUES (?)', [user.id]);
   res.json(user);
 });
 
@@ -106,7 +106,7 @@ app.post('/api/tournaments', (req, res) => {
   if (!user) {
     const r = run('INSERT INTO users (username) VALUES (?)', [username.trim().slice(0, 20)]);
     user = { id: r.lastInsertRowid, username: username.trim() };
-    run('INSERT INTO user_stats (user_id) VALUES (?)', [user.id]);
+    run('INSERT OR IGNORE INTO user_stats (user_id) VALUES (?)', [user.id]);
   }
 
   const key = genKey(6);
@@ -144,7 +144,7 @@ app.post('/api/tournaments/:key/join', (req, res) => {
   if (!user) {
     const r = run('INSERT INTO users (username) VALUES (?)', [username.trim().slice(0, 20)]);
     user = { id: r.lastInsertRowid, username: username.trim() };
-    run('INSERT INTO user_stats (user_id) VALUES (?)', [user.id]);
+    run('INSERT OR IGNORE INTO user_stats (user_id) VALUES (?)', [user.id]);
   }
 
   const exists = get('SELECT 1 as x FROM tournament_players WHERE tournament_id = ? AND user_id = ?', [t.id, user.id]);

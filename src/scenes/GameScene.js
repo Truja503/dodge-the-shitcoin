@@ -128,12 +128,19 @@ export default class GameScene extends Phaser.Scene {
         // Proyectiles dólar vs jugadores
         this.physics.add.overlap(
             this.thrownDollars, this.player.sprite,
-            (proj) => this._dollarHitPlayer(proj, this.player),
+            (a, b) => {
+                // Phaser puede invertir el orden — encontrar cuál es el proyectil
+                const proj = this.thrownDollars.contains(a) ? a : b;
+                this._dollarHitPlayer(proj, this.player);
+            },
             null, this
         );
         this.physics.add.overlap(
             this.thrownDollars, this.player2.sprite,
-            (proj) => this._dollarHitPlayer(proj, this.player2),
+            (a, b) => {
+                const proj = this.thrownDollars.contains(a) ? a : b;
+                this._dollarHitPlayer(proj, this.player2);
+            },
             null, this
         );
 

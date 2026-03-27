@@ -125,21 +125,25 @@ export default class Player {
     throwDollar() {
         if (this.dollarCount <= 0) return;
 
+        const dx = this.lastDirectionX || 1;
+        const dy = this.lastDirectionY || 0;
+        const mag = Math.sqrt(dx * dx + dy * dy) || 1;
+        const ndx = dx / mag;
+        const ndy = dy / mag;
+
+        // Spawn 60px adelante para no autogolpearse en frame 0
         const proj = this.scene.physics.add.image(
-            this.sprite.x,
-            this.sprite.y,
+            this.sprite.x + ndx * 60,
+            this.sprite.y + ndy * 60,
             "dollar"
         );
         proj.setScale(0.025).setTint(0x00ff00).setDepth(15);
         proj.body.setAllowGravity(false);
         proj._thrower = this;
 
-        const dx = this.lastDirectionX || 1;
-        const dy = this.lastDirectionY || 0;
-        const mag = Math.sqrt(dx * dx + dy * dy) || 1;
         proj.body.setVelocity(
-            (dx / mag) * DOLLAR_THROW_SPEED,
-            (dy / mag) * DOLLAR_THROW_SPEED
+            ndx * DOLLAR_THROW_SPEED,
+            ndy * DOLLAR_THROW_SPEED
         );
 
         this.scene.thrownDollars.add(proj);
