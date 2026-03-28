@@ -358,6 +358,34 @@ app.get('/api/tournaments/:key/stats', (req, res) => {
   res.json(stats);
 });
 
+// ── Online Match Result ──────────────────────────────────────────
+app.post('/api/online-match', (req, res) => {
+  const { player1, player2, player1Score, player2Score } = req.body;
+  if (!player1 || !player2) return res.status(400).json({ error: 'Both players required' });
+
+  const s1 = parseInt(player1Score) || 0;
+  const s2 = parseInt(player2Score) || 0;
+
+  const u1 = get('SELECT id FROM users WHERE username = ?', [player1]);
+  const u2 = get('SELECT id FROM users WHERE username = ?', [player2]);
+  if (!u1 || !u2) return res.status(404).json({ error: 'User not found' });
+
+  const winnerId = s1 > s2 ? u1.id : s2 > s1 ? u2.id : null;
+  const loserId = winnerId === u1.id ? u2.id : winnerId === u2.id ? u1.id : null;
+
+  // Update stats for both
+  run('INSERT OR IGNORE INTO user_stats (user_id) VALUES (?)', [u1.id]);
+  run('INSERT OR IGNORE INTO user_stats (user_id) VALUES (?)', [u2.id]);
+  run('UPDATE user_stats SET games_played = games_played + 1 WHERE user_id = ?', [u1.id]);
+  run('UPDATE user_stats SET games_played = games_played + 1 WHERE user_id = ?', [u2.id]);
+
+  if (winnerId) {
+    run('UPDATE user_stats SET games_won = games_won + 1 WHERE user_id = ?', [winnerId]);
+  }
+
+  res.json({ success: true, winner: winnerId === u1.id ? player1 : winnerId === u2.id ? player2 : 'draw' });
+});
+
 // ── Start ────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3001;
 

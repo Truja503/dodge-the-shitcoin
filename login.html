@@ -4,14 +4,31 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dodge the Shitcoin — Enter</title>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Space+Grotesk:wght@400;500;600;700&family=Orbitron:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&display=swap" rel="stylesheet">
 <style>
-@font-face { font-family: "Cinzel"; src: url("assets/fonts/cinzel/Cinzel-Regular.ttf") format("truetype"); }
-@font-face { font-family: "CinzelBold"; src: url("assets/fonts/cinzel/Cinzel-Bold.ttf") format("truetype"); }
+@font-face { font-family: "Cinzel";     src: url("assets/fonts/cinzel/Cinzel-Regular.ttf") format("truetype"); }
+@font-face { font-family: "CinzelBold"; src: url("assets/fonts/cinzel/Cinzel-Bold.ttf")    format("truetype"); }
+
+:root {
+  --gold:      #ffd700;
+  --gold-mid:  #f5a623;
+  --gold-dim:  #c8a060;
+  --gold-dark: #6b5a30;
+  --bg:        #060810;
+  --card:      rgba(8, 11, 20, 0.88);
+  --border:    rgba(245,166,35, 0.18);
+  --border-hi: rgba(245,166,35, 0.5);
+  --text:      #d4b870;
+  --text-dim:  #6b5030;
+  --text-bright: #ffeaa0;
+  --error:     #ef6644;
+  --ok:        #c8a060;
+}
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
+
 body {
-  background: #0b0f1a;
+  background: var(--bg);
   min-height: 100vh;
   display: flex;
   align-items: center;
@@ -20,173 +37,286 @@ body {
   overflow: hidden;
 }
 
-/* Particles bg */
+/* ── CANVAS ── */
+#particle-canvas {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── SCANLINES ── */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.07) 2px, rgba(0,0,0,0.07) 4px);
+  pointer-events: none;
+  z-index: 999;
+}
+
+/* ── VIGNETTE ── */
 body::before {
   content: '';
   position: fixed;
   inset: 0;
-  background: radial-gradient(ellipse at 30% 50%, rgba(56,189,248,0.05) 0%, transparent 50%),
-              radial-gradient(ellipse at 70% 50%, rgba(245,166,35,0.05) 0%, transparent 50%);
+  background: radial-gradient(ellipse at center, transparent 35%, rgba(0,0,0,0.88) 100%);
   pointer-events: none;
+  z-index: 1;
 }
 
+/* ── CARD ── */
 .auth-box {
-  background: rgba(20, 25, 39, 0.95);
-  border: 1px solid rgba(30, 41, 59, 0.8);
-  border-radius: 20px;
-  padding: 3rem 2.5rem;
-  width: 380px;
-  max-width: 90vw;
-  backdrop-filter: blur(20px);
-  box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 80px rgba(56,189,248,0.05);
+  position: relative;
+  z-index: 10;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2.8rem 2.4rem;
+  width: 400px;
+  max-width: 92vw;
+  backdrop-filter: blur(14px);
+  box-shadow:
+    0 30px 70px rgba(0,0,0,0.7),
+    0 0 60px rgba(245,166,35,0.04);
+  animation: fadeUp 0.7s cubic-bezier(0.23, 1, 0.32, 1) both;
 }
 
-.auth-box h1 {
-  text-align: center;
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(28px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* terminal corner accents */
+.auth-box::before, .auth-box::after,
+.corner-bl, .corner-br {
+  content: '';
+  position: absolute;
+  width: 14px; height: 14px;
+}
+.auth-box::before { top: 0;    left: 0;  border-top:  2px solid var(--gold-mid); border-left:  2px solid var(--gold-mid); }
+.auth-box::after  { top: 0;    right: 0; border-top:  2px solid var(--gold-mid); border-right: 2px solid var(--gold-mid); }
+.corner-bl        { bottom: 0; left: 0;  border-bottom: 2px solid var(--gold-mid); border-left:  2px solid var(--gold-mid); }
+.corner-br        { bottom: 0; right: 0; border-bottom: 2px solid var(--gold-mid); border-right: 2px solid var(--gold-mid); }
+
+/* ── HEADER ── */
+.auth-header { text-align: center; margin-bottom: 1.8rem; }
+
+.auth-header h1 {
   font-family: 'CinzelBold', serif;
-  font-size: 1.6rem;
-  background: linear-gradient(135deg, #f5a623, #ffd700);
+  font-size: 1.8rem;
+  letter-spacing: 3px;
+  background: linear-gradient(135deg, var(--gold-mid), var(--gold), var(--gold-mid));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  filter: drop-shadow(0 0 20px rgba(245,166,35,0.3));
-  margin-bottom: 0.3rem;
+  filter: drop-shadow(0 0 18px rgba(245,166,35,0.4));
+  animation: titlePulse 3s ease-in-out infinite;
 }
 
-.subtitle {
-  text-align: center;
-  color: #64748b;
-  font-size: 0.75rem;
-  letter-spacing: 3px;
+@keyframes titlePulse {
+  0%, 100% { filter: drop-shadow(0 0 18px rgba(245,166,35,0.4)); }
+  50%       { filter: drop-shadow(0 0 30px rgba(245,166,35,0.7)); }
+}
+
+.auth-header .sub {
+  font-size: 0.62rem;
+  letter-spacing: 5px;
+  color: var(--gold-dark);
   text-transform: uppercase;
-  margin-bottom: 2rem;
+  margin-top: 0.5rem;
 }
 
-/* Tabs */
+.divider {
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gold-mid), transparent);
+  margin-top: 0.9rem;
+  opacity: 0.3;
+  animation: divPulse 2.5s ease-in-out infinite;
+}
+@keyframes divPulse {
+  0%, 100% { opacity: 0.2; }
+  50%       { opacity: 0.5; }
+}
+
+/* ── TABS ── */
 .tabs {
   display: flex;
-  gap: 0;
-  margin-bottom: 1.5rem;
-  border-radius: 10px;
+  margin-bottom: 1.6rem;
+  border: 1px solid var(--border);
+  border-radius: 3px;
   overflow: hidden;
-  border: 1px solid #1e293b;
 }
+
 .tab {
   flex: 1;
   padding: 0.7rem;
   text-align: center;
   font-family: 'CinzelBold', serif;
-  font-size: 0.85rem;
-  color: #64748b;
-  background: rgba(15,20,30,0.8);
-  cursor: pointer;
-  transition: all 0.2s;
+  font-size: 0.72rem;
   letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  background: rgba(0,0,0,0.4);
+  cursor: pointer;
   border: none;
+  transition: all 0.25s;
+  position: relative;
 }
+
+.tab::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0;
+  width: 100%; height: 2px;
+  background: var(--gold-mid);
+  transform: scaleX(0);
+  transition: transform 0.25s;
+}
+
 .tab.active {
-  color: #e2e8f0;
-  background: rgba(56,189,248,0.1);
-  text-shadow: 0 0 10px rgba(56,189,248,0.3);
+  color: var(--gold);
+  background: rgba(245,166,35,0.07);
 }
-.tab:hover:not(.active) { color: #94a3b8; }
+.tab.active::after { transform: scaleX(1); }
+.tab:hover:not(.active) { color: var(--gold-dim); }
 
-/* Form */
-.form-group {
-  margin-bottom: 1.2rem;
-}
-.form-group label {
-  display: block;
-  font-size: 0.7rem;
-  color: #64748b;
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  margin-bottom: 0.5rem;
-}
-.form-group input {
-  width: 100%;
-  padding: 0.8rem 1rem;
-  font-size: 1rem;
-  font-family: 'Cinzel', serif;
-  background: rgba(10, 14, 25, 0.9);
-  border: 1px solid #1e293b;
-  border-radius: 10px;
-  color: #f8fafc;
-  outline: none;
-  transition: all 0.2s;
-}
-.form-group input:focus {
-  border-color: #38bdf8;
-  box-shadow: 0 0 15px rgba(56,189,248,0.15);
-}
-.form-group input::placeholder { color: #334155; }
-
-.submit-btn {
-  width: 100%;
-  padding: 0.9rem;
-  font-family: 'CinzelBold', serif;
-  font-size: 1rem;
-  letter-spacing: 3px;
-  text-transform: uppercase;
-  border: none;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all 0.3s;
-  margin-top: 0.5rem;
-}
-.submit-btn.login-btn {
-  background: linear-gradient(135deg, #38bdf8, #0ea5e9);
-  color: #0b0f1a;
-}
-.submit-btn.register-btn {
-  background: linear-gradient(135deg, #f5a623, #b8860b);
-  color: #0b0f1a;
-}
-.submit-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(56,189,248,0.3);
-}
-.submit-btn:active { transform: translateY(0); }
-
-.error-msg {
-  text-align: center;
-  color: #ef4444;
-  font-size: 0.8rem;
-  margin-top: 1rem;
-  min-height: 1.2rem;
-}
-.success-msg {
-  text-align: center;
-  color: #22c55e;
-  font-size: 0.8rem;
-  margin-top: 1rem;
-}
-
-/* Hide forms */
+/* ── FORM ── */
 .form { display: none; }
 .form.active { display: block; }
 
-/* Animate in */
-.auth-box {
-  animation: fadeUp 0.5s ease-out;
+.form-group { margin-bottom: 1.25rem; }
+
+.form-group label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--gold-dim);
+  opacity: 0.7;
+  margin-bottom: 0.45rem;
 }
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(30px); }
-  to { opacity: 1; transform: translateY(0); }
+.form-group label::before { content: '▸'; font-size: 0.65rem; }
+
+.form-group input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font-family: 'Cinzel', serif;
+  font-size: 0.9rem;
+  letter-spacing: 1px;
+  background: rgba(0,0,0,0.45);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text-bright);
+  outline: none;
+  transition: all 0.25s;
+}
+
+.form-group input::placeholder { color: var(--text-dim); font-size: 0.78rem; }
+
+.form-group input:focus {
+  border-color: var(--gold-mid);
+  background: rgba(245,166,35,0.04);
+  box-shadow: 0 0 14px rgba(245,166,35,0.1), inset 0 0 10px rgba(245,166,35,0.03);
+}
+
+/* ── BUTTON ── */
+.submit-btn {
+  width: 100%;
+  padding: 0.85rem;
+  font-family: 'CinzelBold', serif;
+  font-size: 0.9rem;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.25s;
+  margin-top: 0.4rem;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, var(--gold-mid), #b8860b);
+  color: #060810;
+  box-shadow: 0 0 20px rgba(245,166,35,0.15);
+}
+
+.submit-btn::before {
+  content: '';
+  position: absolute;
+  top: -100%; left: -100%;
+  width: 300%; height: 300%;
+  background: linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.12) 50%, transparent 60%);
+  transition: all 0.5s;
+}
+.submit-btn:hover::before { top: 100%; left: 100%; }
+.submit-btn:hover {
+  box-shadow: 0 0 35px rgba(245,166,35,0.45), 0 0 60px rgba(245,166,35,0.2);
+  transform: translateY(-2px);
+}
+.submit-btn:active { transform: translateY(0); }
+
+/* ── MESSAGES ── */
+.msg {
+  min-height: 1.2rem;
+  text-align: center;
+  font-size: 0.72rem;
+  letter-spacing: 1px;
+  margin-top: 1rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: 3px;
+  display: none;
+}
+.msg.error {
+  display: block;
+  color: var(--error);
+  background: rgba(239,102,68,0.08);
+  border: 1px solid rgba(239,102,68,0.25);
+}
+.msg.success {
+  display: block;
+  color: var(--ok);
+  background: rgba(245,166,35,0.06);
+  border: 1px solid rgba(245,166,35,0.2);
+}
+
+/* ── GENESIS FOOTER ── */
+.genesis {
+  text-align: center;
+  font-size: 0.6rem;
+  color: var(--gold-dark);
+  opacity: 0.3;
+  margin-top: 1.8rem;
+  letter-spacing: 1px;
+  animation: genesisPulse 4s ease-in-out infinite;
+}
+@keyframes genesisPulse {
+  0%, 100% { opacity: 0.2; }
+  50%       { opacity: 0.45; }
 }
 </style>
 </head>
 <body>
 
-<div class="auth-box">
-  <h1>⚡ Dodge the Shitcoin</h1>
-  <div class="subtitle">Enter the arena</div>
+<canvas id="particle-canvas"></canvas>
 
-  <div class="tabs">
-    <button class="tab active" onclick="showTab('login')">Login</button>
-    <button class="tab" onclick="showTab('register')">Register</button>
+<div class="auth-box">
+  <div class="corner-bl"></div>
+  <div class="corner-br"></div>
+
+  <div class="auth-header">
+    <h1>⚡ Dodge the Shitcoin</h1>
+    <div class="sub">Enter the Arena</div>
+    <div class="divider"></div>
   </div>
 
-  <!-- Login Form -->
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('login')">[ Login ]</button>
+    <button class="tab" onclick="showTab('register')">[ Register ]</button>
+  </div>
+
+  <!-- Login -->
   <div class="form active" id="login-form">
     <div class="form-group">
       <label>Username</label>
@@ -196,10 +326,10 @@ body::before {
       <label>Password</label>
       <input type="password" id="login-pass" placeholder="••••••" autocomplete="current-password">
     </div>
-    <button class="submit-btn login-btn" onclick="doLogin()">Enter</button>
+    <button class="submit-btn" onclick="doLogin()">Enter</button>
   </div>
 
-  <!-- Register Form -->
+  <!-- Register -->
   <div class="form" id="register-form">
     <div class="form-group">
       <label>Choose Username</label>
@@ -209,89 +339,224 @@ body::before {
       <label>Choose Password</label>
       <input type="password" id="reg-pass" placeholder="••••••" autocomplete="new-password">
     </div>
-    <button class="submit-btn register-btn" onclick="doRegister()">Create Account</button>
+    <button class="submit-btn" onclick="doRegister()">Forge Account</button>
   </div>
 
-  <div class="error-msg" id="error-msg"></div>
+  <div class="msg" id="msg"></div>
+
+  <div class="genesis">
+    The Times 03/Jan/2009 — Chancellor on brink of second bailout for banks
+  </div>
 </div>
 
 <script>
+// ── PARTICLE SYSTEM ──
+(function() {
+  const canvas = document.getElementById('particle-canvas');
+  const ctx    = canvas.getContext('2d');
+
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+  window.addEventListener('resize', () => {
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+  });
+
+  const BITCOIN_STRINGS = [
+    'The Times 03/Jan/2009',
+    'Chancellor on brink of second bailout for banks',
+    '4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b',
+    '000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f',
+    'KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgd9M7rFU73sVHnoWn',
+    '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa',
+    'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq',
+    'nonce:2083236893  bits:486604799',
+    'block:0  prev:0000...0000',
+    'sha256d:genesis block',
+    'f2ca1bb6c7e907d06dafe4687e579fce76b37e4e93b7605022da52e6ccc26fd2',
+  ];
+
+  const PAL = ['245,166,35', '200,130,40', '255,220,100', '160,100,30'];
+
+  class Bit {
+    constructor(init) { this.reset(init); }
+    reset(init = false) {
+      this.x    = Math.random() * canvas.width;
+      this.y    = init ? Math.random() * canvas.height : canvas.height + 10;
+      this.char = Math.random() < 0.78 ? (Math.random() < 0.5 ? '0' : '1') : (Math.random() < 0.5 ? '₿' : '⚡');
+      this.size = 9 + Math.random() * 7;
+      this.vy   = -(0.12 + Math.random() * 0.5);
+      this.vx   = (Math.random() - 0.5) * 0.2;
+      this.life = 0;
+      this.maxLife = 200 + Math.random() * 200;
+      this.col  = PAL[Math.floor(Math.random() * PAL.length)];
+      this.bright = Math.random() < 0.1;
+    }
+    tick() {
+      this.life++; this.x += this.vx; this.y += this.vy;
+      if (this.life >= this.maxLife || this.y < -20) this.reset();
+    }
+    draw() {
+      const p = this.life / this.maxLife;
+      const a = (p < 0.15 ? p / 0.15 : p > 0.8 ? 1 - (p - 0.8) / 0.2 : 1) * (this.bright ? 0.75 : 0.22);
+      ctx.save();
+      ctx.globalAlpha = a;
+      if (this.bright) { ctx.shadowColor = `rgba(${this.col},0.9)`; ctx.shadowBlur = 10; }
+      ctx.fillStyle = `rgba(${this.col},1)`;
+      ctx.font = `bold ${this.size}px 'Cinzel', serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(this.char, this.x, this.y);
+      ctx.restore();
+    }
+  }
+
+  class StrParticle {
+    constructor(init) { this.reset(init); }
+    reset(init = false) {
+      this.text = BITCOIN_STRINGS[Math.floor(Math.random() * BITCOIN_STRINGS.length)];
+      this.x    = Math.random() * canvas.width;
+      this.y    = init ? Math.random() * canvas.height : canvas.height + 20;
+      this.size = 7 + Math.random() * 3;
+      this.vy   = -(0.07 + Math.random() * 0.18);
+      this.vx   = (Math.random() - 0.5) * 0.1;
+      this.life = 0;
+      this.maxLife = 400 + Math.random() * 350;
+      this.col  = PAL[Math.floor(Math.random() * PAL.length)];
+      this.maxA = 0.07 + Math.random() * 0.07;
+    }
+    tick() {
+      this.life++; this.x += this.vx; this.y += this.vy;
+      if (this.life >= this.maxLife || this.y < -20) this.reset();
+    }
+    draw() {
+      const p = this.life / this.maxLife;
+      const a = (p < 0.1 ? p / 0.1 : p > 0.85 ? 1 - (p - 0.85) / 0.15 : 1) * this.maxA;
+      ctx.save();
+      ctx.globalAlpha = a;
+      ctx.fillStyle = `rgba(${this.col},1)`;
+      ctx.font = `${this.size}px 'Cinzel', serif`;
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.fillText(this.text, this.x, this.y);
+      ctx.restore();
+    }
+  }
+
+  // Column binary rain
+  const colW    = 18;
+  const numCols = Math.floor(window.innerWidth / colW);
+  const drops   = Array.from({ length: numCols }, (_, i) => ({
+    x: i * colW + 9,
+    y: Math.random() * canvas.height,
+    speed: 0.4 + Math.random() * 0.9,
+    alpha: 0.03 + Math.random() * 0.04,
+  }));
+
+  const bits = Array.from({ length: 85 }, (_, i) => new Bit(true));
+  const strs = Array.from({ length: 14 }, (_, i) => new StrParticle(true));
+
+  const loop = () => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    drops.forEach(d => {
+      ctx.save();
+      ctx.globalAlpha = d.alpha;
+      ctx.fillStyle = 'rgba(200,130,40,1)';
+      ctx.font = `bold 11px 'Cinzel', serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(Math.random() < 0.5 ? '0' : '1', d.x, d.y);
+      ctx.restore();
+      d.y += d.speed;
+      if (d.y > canvas.height + 20) d.y = -10;
+    });
+
+    strs.forEach(s => { s.tick(); s.draw(); });
+    bits.forEach(b => { b.tick(); b.draw(); });
+    requestAnimationFrame(loop);
+  };
+  loop();
+})();
+
+// ── AUTH LOGIC ──
 const API = 'http://localhost:3001/api';
 
-// If already logged in, go straight to game
-const existing = localStorage.getItem('dts_token');
-if (existing) {
-  fetch(`${API}/me`, { headers: { 'Authorization': `Bearer ${existing}` }})
-    .then(r => r.ok ? window.location.href = 'index.html' : localStorage.removeItem('dts_token'))
-    .catch(() => {});
-}
+// Auto-redirect if already logged in
+(function() {
+  const token = localStorage.getItem('dts_token');
+  if (token) {
+    fetch(`${API}/me`, { headers: { 'Authorization': `Bearer ${token}` }})
+      .then(r => r.ok ? window.location.href = 'index.html' : localStorage.removeItem('dts_token'))
+      .catch(() => {});
+  }
+})();
 
 function showTab(tab) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.form').forEach(f => f.classList.remove('active'));
   document.getElementById(tab + '-form').classList.add('active');
   document.querySelector(`.tab:${tab === 'login' ? 'first-child' : 'last-child'}`).classList.add('active');
-  document.getElementById('error-msg').textContent = '';
+  hideMsg();
+}
+
+function showMsg(text, type = 'error') {
+  const el = document.getElementById('msg');
+  el.className = 'msg ' + type;
+  el.textContent = '▸ ' + text;
+}
+function hideMsg() {
+  const el = document.getElementById('msg');
+  el.className = 'msg';
+  el.textContent = '';
 }
 
 async function doLogin() {
   const username = document.getElementById('login-user').value.trim();
   const password = document.getElementById('login-pass').value;
-  if (!username || !password) return showError('Fill in both fields');
-
+  if (!username || !password) return showMsg('Fill in both fields');
   try {
-    const res = await fetch(`${API}/login`, {
+    const res  = await fetch(`${API}/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password })
     });
     const data = await res.json();
-    if (!res.ok) return showError(data.error || 'Login failed');
-
-    // Save and go
+    if (!res.ok) return showMsg(data.error || 'Login failed');
     localStorage.setItem('dts_token', data.token);
     localStorage.setItem('dts_user', JSON.stringify({ id: data.id, username: data.username }));
-    window.location.href = 'index.html';
+    showMsg('Welcome back, ' + data.username + '!', 'success');
+    setTimeout(() => window.location.href = 'index.html', 700);
   } catch(e) {
-    showError('Server offline — run: cd server && node server.js');
+    showMsg('Server offline — run: cd server && node server.js');
   }
 }
 
 async function doRegister() {
   const username = document.getElementById('reg-user').value.trim();
   const password = document.getElementById('reg-pass').value;
-  if (!username || !password) return showError('Fill in both fields');
-
+  if (!username || !password) return showMsg('Fill in both fields');
   try {
-    const res = await fetch(`${API}/register`, {
+    const res  = await fetch(`${API}/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password })
     });
     const data = await res.json();
-    if (!res.ok) return showError(data.error || 'Registration failed');
-
-    // Auto-login
+    if (!res.ok) return showMsg(data.error || 'Registration failed');
     localStorage.setItem('dts_token', data.token);
     localStorage.setItem('dts_user', JSON.stringify({ id: data.id, username: data.username }));
-    window.location.href = 'index.html';
+    showMsg('Account forged, ' + data.username + '!', 'success');
+    setTimeout(() => window.location.href = 'index.html', 700);
   } catch(e) {
-    showError('Server offline — run: cd server && node server.js');
+    showMsg('Server offline — run: cd server && node server.js');
   }
-}
-
-function showError(msg) {
-  document.getElementById('error-msg').textContent = msg;
 }
 
 // Enter key submits
 document.querySelectorAll('input').forEach(input => {
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      const form = input.closest('.form');
-      if (form.id === 'login-form') doLogin();
-      else doRegister();
-    }
+  input.addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    const form = input.closest('.form');
+    if (form.id === 'login-form') doLogin();
+    else doRegister();
   });
 });
 </script>

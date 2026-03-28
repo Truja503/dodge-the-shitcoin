@@ -32,26 +32,21 @@ const params = new URLSearchParams(window.location.search);
 if (params.get('mode') === 'online') {
     const matchData = JSON.parse(sessionStorage.getItem('online_match') || '{}');
     if (matchData.roomId) {
-        // Connect WebSocket and start OnlineScene
         const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = matchData.wsUrl || `${wsProtocol}//localhost:3001`;
+        const wsUrl = matchData.wsUrl || `${wsProtocol}//${window.location.hostname}:3001`;
         const ws = new WebSocket(wsUrl);
 
         ws.onopen = () => {
-            // Wait for game to be ready, then start OnlineScene
-            game.events.once('ready', () => {
-                game.scene.start('OnlineScene', {
-                    isHost: matchData.isHost,
-                    roomId: matchData.roomId,
-                    ws: ws,
-                    username: matchData.username || 'Player',
-                    opponentName: matchData.opponentName || 'Opponent'
-                });
-                game.scene.stop('MenuScene');
-            });
+            console.log('WS connected for online match, room:', matchData.roomId);
+            // Re-join the room so the server knows this WS belongs to this room
+            ws.send(JSON.stringify({
+                type: matchData.isHost ? 'rejoin_host' : 'rejoin_client',
+                roomId: matchData.roomId,
+                username: matchData.username || 'Player'
+            }));
 
-            // If game is already ready
-            if (game.isRunning) {
+            function startOnline() {
+                game.scene.stop('MenuScene');
                 game.scene.start('OnlineScene', {
                     isHost: matchData.isHost,
                     roomId: matchData.roomId,
@@ -59,7 +54,19 @@ if (params.get('mode') === 'online') {
                     username: matchData.username || 'Player',
                     opponentName: matchData.opponentName || 'Opponent'
                 });
-                game.scene.stop('MenuScene');
+            }
+
+            // Phaser might still be booting
+            if (game.isRunning) {
+                startOnline();
+            } else {
+                game.events.once('ready', startOnline);
+                // Fallback: Phaser 3 sometimes doesn't fire 'ready'
+                setTimeout(() => {
+                    if (game.scene.isActive('MenuScene') || game.isRunning) {
+                        startOnline();
+                    }
+                }, 1000);
             }
         };
 

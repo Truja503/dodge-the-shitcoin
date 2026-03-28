@@ -166,6 +166,30 @@ function setupOnlineWS(wss) {
           break;
         }
 
+        case 'rejoin_host': {
+          const room = rooms.get(msg.roomId);
+          if (!room) {
+            ws.send(JSON.stringify({ type: 'error', message: 'Room not found' }));
+            return;
+          }
+          room.hostWs = ws;
+          wsRoomMap.set(ws, msg.roomId);
+          ws.send(JSON.stringify({ type: 'rejoin_ok', role: 'host', roomId: msg.roomId }));
+          break;
+        }
+
+        case 'rejoin_client': {
+          const room = rooms.get(msg.roomId);
+          if (!room) {
+            ws.send(JSON.stringify({ type: 'error', message: 'Room not found' }));
+            return;
+          }
+          room.clientWs = ws;
+          wsRoomMap.set(ws, msg.roomId);
+          ws.send(JSON.stringify({ type: 'rejoin_ok', role: 'client', roomId: msg.roomId }));
+          break;
+        }
+
         case 'leave_room': {
           const rid = wsRoomMap.get(ws);
           if (rid) cleanupRoom(rid);
@@ -180,7 +204,34 @@ function setupOnlineWS(wss) {
 
     ws.on('close', () => {
       const rid = wsRoomMap.get(ws);
-      if (rid) {
+      if (!rid) return;
+      wsRoomMap.delete(ws);
+
+      const room = rooms.get(rid);
+      if (!room) return;
+
+      // If playing, give 5s grace period for rejoin (page navigation)
+      if (room.state === 'playing') {
+        // Mark which side disconnected
+        if (ws === room.hostWs) room.hostWs = null;
+        if (ws === room.clientWs) room.clientWs = null;
+
+        setTimeout(() => {
+          const r = rooms.get(rid);
+          if (!r) return;
+          // If still missing after grace period, clean up
+          if (!r.hostWs || !r.clientWs) {
+            // Only notify if one side is still connected
+            if (r.hostWs && r.hostWs.readyState === 1) {
+              r.hostWs.send(JSON.stringify({ type: 'opponent_disconnected' }));
+            }
+            if (r.clientWs && r.clientWs.readyState === 1) {
+              r.clientWs.send(JSON.stringify({ type: 'opponent_disconnected' }));
+            }
+            rooms.delete(rid);
+          }
+        }, 5000);
+      } else {
         cleanupRoom(rid);
       }
     });

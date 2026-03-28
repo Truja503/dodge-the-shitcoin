@@ -771,6 +771,9 @@ export default class OnlineScene extends Phaser.Scene {
             }));
         }
 
+        // Save stats to DB
+        this._saveMatchResult(winner);
+
         this._showWinScreen(winner, winColor);
     }
 
@@ -835,6 +838,44 @@ export default class OnlineScene extends Phaser.Scene {
         }
 
         this._showWinScreen('Opponent Disconnected', '#f5a623');
+    }
+
+    async _saveMatchResult(winner) {
+        try {
+            const API = `${window.location.protocol}//${window.location.hostname}:3001/api`;
+            
+            // Record stats for host player (player1)
+            const hostUser = this.isHost ? this.username : this.opponentName;
+            const clientUser = this.isHost ? this.opponentName : this.username;
+            const p1Score = this.isHost ? this.bitcoinsCollected.player1 : this.bitcoinsCollected.player2;
+            const p2Score = this.isHost ? this.bitcoinsCollected.player2 : this.bitcoinsCollected.player1;
+            
+            // Ensure both users exist
+            await fetch(`${API}/users`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: hostUser })
+            });
+            await fetch(`${API}/users`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: clientUser })
+            });
+            
+            // Record match result via a new endpoint
+            await fetch(`${API}/online-match`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    player1: hostUser,
+                    player2: clientUser,
+                    player1Score: this.bitcoinsCollected.player1,
+                    player2Score: this.bitcoinsCollected.player2
+                })
+            });
+        } catch (e) {
+            console.warn('Failed to save match result:', e);
+        }
     }
 
     _cleanup() {
