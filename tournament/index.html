@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tournament Bracket — Dodge the Shitcoin</title>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Inter:wght@400;500;600&family=Orbitron:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
 :root {
   --bg: #0b0f1a;
@@ -423,6 +423,34 @@ body {
 }
 .btn-cancel:hover { border-color: var(--text-dim); }
 
+/* Game overlay */
+.game-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: #0b0f1a;
+}
+.game-overlay-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  height: 50px;
+  background: rgba(5,8,15,0.95);
+  border-bottom: 1px solid rgba(245,166,35,0.2);
+  font-family: 'Orbitron', sans-serif;
+}
+.game-p1-name { color: #38bdf8; font-size: 1.1rem; font-weight: 700; }
+.game-p2-name { color: #f5a623; font-size: 1.1rem; font-weight: 700; }
+.game-vs { color: #64748b; font-size: 0.9rem; }
+.game-overlay-status {
+  text-align: center;
+  padding: 8px;
+  font-family: 'Cinzel', serif;
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
 /* Stats panel */
 .stats-panel {
   display: none;
@@ -529,7 +557,18 @@ body {
   <div class="loading" id="loading">Loading bracket</div>
 </div>
 
-<!-- Score Modal -->
+<!-- Game Overlay (embedded match) -->
+<div class="game-overlay" id="game-overlay" style="display:none;">
+  <div class="game-overlay-header">
+    <span class="game-p1-name" id="game-p1-name">Player 1</span>
+    <span class="game-vs">VS</span>
+    <span class="game-p2-name" id="game-p2-name">Player 2</span>
+  </div>
+  <div class="game-overlay-status" id="game-overlay-status"></div>
+  <iframe id="game-iframe" src="" style="width:100%;height:calc(100vh - 80px);border:none;" allow="gamepad"></iframe>
+</div>
+
+<!-- Score Modal (fallback for manual reporting) -->
 <div class="modal-overlay" id="score-modal">
   <div class="modal">
     <h3>Report Match Result</h3>
@@ -710,10 +749,17 @@ function renderBracket() {
         if (match) {
           const isActive = match.status === 'pending' && match.player1_id && match.player2_id;
           const isFinished = match.status === 'finished';
-          const canClick = adminKey && isActive;
+          const canClick = isActive && (adminKey || match.player1_id && match.player2_id);
+
+          let clickHandler = '';
+          if (isActive && adminKey) {
+            clickHandler = `onclick="launchMatch(${match.id}, '${(match.player1_name || '').replace(/'/g, "\\'")}', '${(match.player2_name || '').replace(/'/g, "\\'")}')"`;
+          } else if (isActive && !adminKey && match.player1_name && match.player2_name) {
+            clickHandler = `onclick="spectateMatch(${match.id}, '${(match.player1_name || '').replace(/'/g, "\\'")}', '${(match.player2_name || '').replace(/'/g, "\\'")}')"`;
+          }
 
           html += `<div class="match-card ${isActive ? 'active' : ''} ${isFinished ? 'finished' : ''} ${canClick ? 'admin-clickable' : ''}"
-            ${canClick ? `onclick="openScoreModal(${match.id}, '${match.player1_name || 'Waiting...'}', '${match.player2_name || 'Waiting...'}')"` : ''}>`;
+            ${clickHandler}>`;
           html += renderMatchPlayer(match.player1_name, match.player1_score, match.winner_id && match.winner_id === match.player1_id, isFinished);
           html += renderMatchPlayer(match.player2_name, match.player2_score, match.winner_id && match.winner_id === match.player2_id, isFinished);
           html += '</div>';
@@ -762,7 +808,14 @@ function renderBracket() {
   } else {
     // Show final match card above trophy
     if (finalMatch && finalMatch.player1_name) {
-      html += `<div class="match-card" style="margin-bottom:1rem;min-width:160px;">`;
+      const finalActive = finalMatch.status === 'pending' && finalMatch.player1_id && finalMatch.player2_id;
+      let finalClick = '';
+      if (finalActive && adminKey) {
+        finalClick = `onclick="launchMatch(${finalMatch.id}, '${(finalMatch.player1_name||'').replace(/'/g,"\\'")}', '${(finalMatch.player2_name||'').replace(/'/g,"\\'")}')"`; 
+      } else if (finalActive && !adminKey) {
+        finalClick = `onclick="spectateMatch(${finalMatch.id}, '${(finalMatch.player1_name||'').replace(/'/g,"\\'")}', '${(finalMatch.player2_name||'').replace(/'/g,"\\'")}')"`; 
+      }
+      html += `<div class="match-card ${finalActive ? 'active admin-clickable' : ''}" style="margin-bottom:1rem;min-width:160px;" ${finalClick}>`;
       html += renderMatchPlayer(finalMatch.player1_name, finalMatch.player1_score, false, false);
       html += renderMatchPlayer(finalMatch.player2_name, finalMatch.player2_score, false, false);
       html += '</div>';
@@ -887,6 +940,46 @@ function closeStats() {
 // Close modal on overlay click
 document.getElementById('score-modal').addEventListener('click', (e) => {
   if (e.target === document.getElementById('score-modal')) closeModal();
+});
+
+// ═══════════════════════════════════════════════════════════
+// EMBEDDED MATCH (launch game in iframe)
+// ═══════════════════════════════════════════════════════════
+function launchMatch(matchId, p1Name, p2Name) {
+  const overlay = document.getElementById('game-overlay');
+  const iframe = document.getElementById('game-iframe');
+  document.getElementById('game-p1-name').textContent = p1Name;
+  document.getElementById('game-p2-name').textContent = p2Name;
+  document.getElementById('game-overlay-status').textContent = 'Loading match...';
+
+  const matchUrl = `match.html?p1=${encodeURIComponent(p1Name)}&p2=${encodeURIComponent(p2Name)}&matchId=${matchId}&tournamentKey=${tournamentKey}&adminKey=${adminKey}&spectator=false`;
+  iframe.src = matchUrl;
+  overlay.style.display = 'block';
+}
+
+function spectateMatch(matchId, p1Name, p2Name) {
+  const overlay = document.getElementById('game-overlay');
+  const iframe = document.getElementById('game-iframe');
+  document.getElementById('game-p1-name').textContent = p1Name;
+  document.getElementById('game-p2-name').textContent = p2Name;
+  document.getElementById('game-overlay-status').textContent = 'Spectating...';
+
+  const matchUrl = `match.html?p1=${encodeURIComponent(p1Name)}&p2=${encodeURIComponent(p2Name)}&matchId=${matchId}&tournamentKey=${tournamentKey}&spectator=true`;
+  iframe.src = matchUrl;
+  overlay.style.display = 'block';
+}
+
+window.addEventListener('message', (e) => {
+  if (!e.data) return;
+  if (e.data.type === 'match_complete') {
+    document.getElementById('game-overlay-status').textContent =
+      `${e.data.winner} wins! (${e.data.p1Score} - ${e.data.p2Score})`;
+  }
+  if (e.data.type === 'match_close') {
+    document.getElementById('game-overlay').style.display = 'none';
+    document.getElementById('game-iframe').src = '';
+    loadTournament();
+  }
 });
 
 // Init
