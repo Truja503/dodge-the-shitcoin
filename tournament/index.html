@@ -692,9 +692,9 @@ function render() {
 function renderPlayerList() {
   const section = document.getElementById('players-section');
   section.style.display = 'block';
-  const format = parseInt(tournament.format) || 16;
+  const actualFormat = parseInt(tournament.format) || 16;
   document.getElementById('player-count').textContent = tournament.players.length;
-  document.getElementById('max-players').textContent = format;
+  document.getElementById('max-players').textContent = actualFormat;
 
   const list = document.getElementById('player-list');
   list.innerHTML = tournament.players.map(p =>
@@ -704,8 +704,9 @@ function renderPlayerList() {
 
 function renderBracket() {
   const container = document.getElementById('bracket-container');
-  const format = parseInt(tournament.format) || 16;
-  const totalRounds = Math.log2(format); // 1 for 2, 2 for 4, 3 for 8, 4 for 16
+  // Always render full 16-bracket visual. Actual matches populate based on tournament format.
+  const format = 16;
+  const totalRounds = 4;
   const matches = tournament.matches || [];
   const players = tournament.players || [];
 
@@ -715,19 +716,12 @@ function renderBracket() {
 
   function buildHalf(side) {
     let html = '';
-    // Build rounds for this half (all rounds except final)
-    const roundsPerHalf = [];
-    for (let r = 1; r < totalRounds; r++) {
-      const matchesInRound = format / Math.pow(2, r);
-      const halfCount = matchesInRound / 2;
-      roundsPerHalf.push({
-        round: r,
-        count: halfCount,
-        offset: side === 'left' ? 0 : halfCount
-      });
-    }
-    // For format=2, there's only a final, no halves needed
-    if (roundsPerHalf.length === 0) return '';
+    // Always show 3 rounds per half: R16(4), QF(2), SF(1)
+    const roundsPerHalf = [
+      { round: 1, count: 4, offset: side === 'left' ? 0 : 4 },
+      { round: 2, count: 2, offset: side === 'left' ? 0 : 2 },
+      { round: 3, count: 1, offset: side === 'left' ? 0 : 1 },
+    ];
 
     for (let ri = 0; ri < roundsPerHalf.length; ri++) {
       const { round, count, offset } = roundsPerHalf[ri];
