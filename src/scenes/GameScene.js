@@ -431,51 +431,218 @@ export default class GameScene extends Phaser.Scene {
     endGame() {
         this.gameStarted = false;
 
-        let winner = "Draw!";
-        let winColor = "#e2e8f0";
-        if (this.bitcoinsCollected.player1 > this.bitcoinsCollected.player2) {
-            winner = "Player 1 Wins!";
-            winColor = "#38bdf8";
-        } else if (this.bitcoinsCollected.player2 > this.bitcoinsCollected.player1) {
-            winner = "Player 2 Wins!";
-            winColor = "#f5a623";
-        }
+        const W  = this.scale.width;
+        const H  = this.scale.height;
+        const cx = W / 2;
+        const cy = H / 2;
 
-        const winText = this.add.text(this.scale.width / 2, this.scale.height / 2 - 30, winner, {
-            fontFamily: "Orbitron",
-            fontSize: "42px",
-            color: winColor,
-            stroke: "#000",
-            strokeThickness: 6
-        }).setOrigin(0.5).setDepth(100);
+        // ── Determine winner ──
+        const p1Score = this.bitcoinsCollected.player1;
+        const p2Score = this.bitcoinsCollected.player2;
+        const isDraw  = p1Score === p2Score;
+        const p1Wins  = p1Score > p2Score;
 
-        const scoreText = this.add.text(this.scale.width / 2, this.scale.height / 2 + 30,
-            `${this.bitcoinsCollected.player1} — ${this.bitcoinsCollected.player2}`, {
-            fontFamily: "Orbitron",
-            fontSize: "28px",
-            color: "#94a3b8",
-            stroke: "#000",
-            strokeThickness: 4
-        }).setOrigin(0.5).setDepth(100);
+        const winnerLabel = isDraw  ? "DRAW"
+                          : p1Wins  ? "PLAYER  1" : "PLAYER  2";
+        const winnerColor = isDraw  ? 0xe2e8f0
+                          : p1Wins  ? 0x38bdf8    : 0xf5a623;
+        const winnerHex   = isDraw  ? "#e2e8f0"
+                          : p1Wins  ? "#38bdf8"    : "#f5a623";
+        const winnerSprite = isDraw ? null
+                           : p1Wins ? this.player?.sprite : this.player2?.sprite;
 
-        // Tournament auto-report
+        // ── Tournament report (fire immediately) ──
         try {
-            const tKey = localStorage.getItem('tournamentKey');
+            const tKey   = localStorage.getItem('tournamentKey');
             const tAdmin = localStorage.getItem('tournamentAdminKey');
             const tMatch = localStorage.getItem('tournamentMatchId');
             if (tKey && tAdmin && tMatch) {
                 fetch(`http://localhost:3001/api/tournaments/${tKey}/match/${tMatch}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        adminKey: tAdmin,
-                        player1Score: this.bitcoinsCollected.player1,
-                        player2Score: this.bitcoinsCollected.player2
-                    })
+                    body: JSON.stringify({ adminKey: tAdmin, player1Score: p1Score, player2Score: p2Score })
                 }).catch(() => {});
             }
         } catch (e) { /* ignore */ }
 
-        this.time.delayedCall(5000, () => this.scene.start("MenuScene"));
+        // ── 1. Black overlay fade-in ──
+        const overlay = this.add.rectangle(cx, cy, W, H, 0x000000, 0).setDepth(50);
+        this.tweens.add({ targets: overlay, fillAlpha: 0.75, duration: 600, ease: 'Sine.easeIn' });
+
+        // ── 2. Freeze & zoom winner sprite to center ──
+        if (winnerSprite && winnerSprite.active) {
+            winnerSprite.setDepth(60);
+            if (winnerSprite.anims) winnerSprite.anims.stop();
+
+            // camera-shake punch
+            this.cameras.main.shake(400, 0.018);
+
+            this.time.delayedCall(250, () => {
+                this.tweens.add({
+                    targets: winnerSprite,
+                    x: cx, y: cy - 40,
+                    scaleX: 3.5, scaleY: 3.5,
+                    duration: 700,
+                    ease: 'Back.easeOut'
+                });
+            });
+        }
+
+        // ── 3. Particle EXPLOSION burst (Phaser emitters) ──
+        this.time.delayedCall(200, () => {
+            // Gold burst
+            const emitter = this.add.particles(cx, cy - 40, "magicParticle", {
+                speed:    { min: 120, max: 520 },
+                angle:    { min: 0, max: 360 },
+                scale:    { start: 1.4, end: 0 },
+                alpha:    { start: 1, end: 0 },
+                lifespan: 900,
+                gravityY: 280,
+                tint:     [winnerColor, 0xffd700, 0xffffff],
+                quantity: 5,
+                frequency: 25,
+                blendMode: 'ADD',
+            }).setDepth(70);
+
+            // Secondary scatter — higher arc
+            const emitter2 = this.add.particles(cx, cy - 40, "magicParticle", {
+                speed:    { min: 200, max: 700 },
+                angle:    { min: -110, max: -70 },
+                scale:    { start: 0.9, end: 0 },
+                alpha:    { start: 0.9, end: 0 },
+                lifespan: 1200,
+                gravityY: 380,
+                tint:     [winnerColor, 0xffffff],
+                quantity: 3,
+                frequency: 20,
+                blendMode: 'ADD',
+            }).setDepth(70);
+
+            // Stop emitters after 1.4s
+            this.time.delayedCall(1400, () => {
+                emitter.stop();
+                emitter2.stop();
+            });
+        });
+
+        // ── 4. Continuous ambient particles rising ──
+        this.time.delayedCall(400, () => {
+            const ambient = this.add.particles(0, H, "magicParticle", {
+                x:        { min: 0, max: W },
+                y:        { min: H + 10, max: H + 10 },
+                speed:    { min: 40, max: 150 },
+                angle:    { min: -100, max: -80 },
+                scale:    { start: 0.7, end: 0 },
+                alpha:    { start: 0.6, end: 0 },
+                lifespan: { min: 1200, max: 2400 },
+                tint:     [winnerColor, 0xffd700, 0xffeaa0],
+                quantity: 2,
+                frequency: 40,
+                blendMode: 'ADD',
+            }).setDepth(65);
+        });
+
+        // ── 5. Screen flash ──
+        this.time.delayedCall(280, () => {
+            const flash = this.add.rectangle(cx, cy, W, H, 0xffffff, 0).setDepth(80);
+            this.tweens.add({
+                targets: flash, fillAlpha: 0.35, duration: 80, yoyo: true,
+                onComplete: () => flash.destroy()
+            });
+        });
+
+        // ── 6. WINNER title — dramatic entry ──
+        this.time.delayedCall(550, () => {
+            // Glow layer
+            const glow = this.add.text(cx, cy - 140, isDraw ? "DRAW" : "WINNER", {
+                fontFamily: "CinzelBold",
+                fontSize: "72px",
+                color: winnerHex,
+            }).setOrigin(0.5).setDepth(90).setAlpha(0).setScale(3);
+
+            this.tweens.add({
+                targets: glow,
+                alpha: { from: 0.25, to: 0.08 },
+                scaleX: 1, scaleY: 1,
+                duration: 500, ease: 'Expo.easeOut'
+            });
+            this.tweens.add({
+                targets: glow,
+                alpha: { from: 0.15, to: 0.25 },
+                duration: 1500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut', delay: 600
+            });
+
+            // Main title
+            const title = this.add.text(cx, cy - 140, isDraw ? "DRAW" : "WINNER", {
+                fontFamily: "CinzelBold",
+                fontSize: "72px",
+                color: winnerHex,
+                stroke: "#000000",
+                strokeThickness: 8,
+                shadow: { offsetX: 0, offsetY: 0, color: winnerHex, blur: 30, fill: true }
+            }).setOrigin(0.5).setDepth(91).setAlpha(0).setScale(0.1);
+
+            this.tweens.add({
+                targets: title,
+                alpha: 1, scaleX: 1, scaleY: 1,
+                duration: 500, ease: 'Back.easeOut',
+                onComplete: () => {
+                    this.tweens.add({
+                        targets: title,
+                        scaleX: 1.06, scaleY: 1.06,
+                        duration: 800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+                    });
+                }
+            });
+
+            // Player name
+            if (!isDraw) {
+                const nameText = this.add.text(cx, cy - 60, winnerLabel + "  WINS!", {
+                    fontFamily: "CinzelBold",
+                    fontSize: "36px",
+                    color: winnerHex,
+                    stroke: "#000000",
+                    strokeThickness: 5,
+                    shadow: { offsetX: 0, offsetY: 0, color: winnerHex, blur: 20, fill: true }
+                }).setOrigin(0.5).setDepth(91).setAlpha(0).setY(cy - 40);
+
+                this.tweens.add({
+                    targets: nameText, alpha: 1, y: cy - 60,
+                    duration: 400, delay: 150, ease: 'Back.easeOut'
+                });
+            }
+        });
+
+        // ── 7. Score display ──
+        this.time.delayedCall(900, () => {
+            const score = this.add.text(cx, cy + 80,
+                `${p1Score}  ─  ${p2Score}`, {
+                fontFamily: "CinzelBold",
+                fontSize: "32px",
+                color: "#c8a060",
+                stroke: "#000",
+                strokeThickness: 4,
+            }).setOrigin(0.5).setDepth(91).setAlpha(0).setY(cy + 100);
+
+            this.tweens.add({ targets: score, alpha: 0.85, y: cy + 80, duration: 400, ease: 'Back.easeOut' });
+        });
+
+        // ── 8. "REMATCH" hint ──
+        this.time.delayedCall(1800, () => {
+            const hint = this.add.text(cx, cy + 150, "↩  Returning to menu...", {
+                fontFamily: "Cinzel",
+                fontSize: "14px",
+                color: "#6b5a30",
+            }).setOrigin(0.5).setDepth(91).setAlpha(0);
+
+            this.tweens.add({ targets: hint, alpha: 0.6, duration: 600, ease: 'Sine.easeOut' });
+            this.tweens.add({
+                targets: hint, alpha: { from: 0.3, to: 0.7 },
+                duration: 1200, yoyo: true, repeat: -1, ease: 'Sine.easeInOut', delay: 700
+            });
+        });
+
+        // ── 9. Return to menu ──
+        this.time.delayedCall(6000, () => this.scene.start("MenuScene"));
     }
 }

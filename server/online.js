@@ -210,30 +210,39 @@ function setupOnlineWS(wss) {
       const room = rooms.get(rid);
       if (!room) return;
 
-      // If playing, give 5s grace period for rejoin (page navigation)
-      if (room.state === 'playing') {
-        // Mark which side disconnected
-        if (ws === room.hostWs) room.hostWs = null;
-        if (ws === room.clientWs) room.clientWs = null;
+      // Mark which side disconnected
+      if (ws === room.hostWs) room.hostWs = null;
+      if (ws === room.clientWs) room.clientWs = null;
 
-        setTimeout(() => {
-          const r = rooms.get(rid);
-          if (!r) return;
-          // If still missing after grace period, clean up
-          if (!r.hostWs || !r.clientWs) {
-            // Only notify if one side is still connected
-            if (r.hostWs && r.hostWs.readyState === 1) {
-              r.hostWs.send(JSON.stringify({ type: 'opponent_disconnected' }));
+      // Grace period for ALL states (page navigation causes disconnect)
+      setTimeout(() => {
+        const r = rooms.get(rid);
+        if (!r) return;
+
+        // If both reconnected, all good
+        if (r.hostWs && r.clientWs) return;
+
+        // If room is waiting and host is still connected (or reconnected), keep it
+        if (r.state === 'waiting' && r.hostWs) return;
+
+        // If room is playing and one side reconnected, keep it
+        if (r.state === 'playing' && (r.hostWs || r.clientWs)) {
+          // Notify the connected side if the other is truly gone
+          const alive = r.hostWs || r.clientWs;
+          if (alive && alive.readyState === 1) {
+            // Only send disconnect if neither side has the missing ws
+            const otherMissing = r.hostWs ? !r.clientWs : !r.hostWs;
+            if (otherMissing) {
+              alive.send(JSON.stringify({ type: 'opponent_disconnected' }));
+              rooms.delete(rid);
             }
-            if (r.clientWs && r.clientWs.readyState === 1) {
-              r.clientWs.send(JSON.stringify({ type: 'opponent_disconnected' }));
-            }
-            rooms.delete(rid);
           }
-        }, 5000);
-      } else {
-        cleanupRoom(rid);
-      }
+          return;
+        }
+
+        // Otherwise clean up
+        rooms.delete(rid);
+      }, 5000);
     });
   });
 }
