@@ -28,51 +28,61 @@ const config = {
 const game = new Phaser.Game(config);
 
 // Check if returning from online lobby
-const params = new URLSearchParams(window.location.search);
-if (params.get('mode') === 'online') {
+const urlParams = new URLSearchParams(window.location.search);
+if (urlParams.get('mode') === 'online') {
     const matchData = JSON.parse(sessionStorage.getItem('online_match') || '{}');
+    console.log('[Online] Match data:', matchData);
+
     if (matchData.roomId) {
         const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const wsUrl = matchData.wsUrl || `${wsProtocol}//${window.location.hostname}:3001`;
-        const ws = new WebSocket(wsUrl);
 
-        ws.onopen = () => {
-            console.log('WS connected for online match, room:', matchData.roomId);
-            // Re-join the room so the server knows this WS belongs to this room
-            ws.send(JSON.stringify({
-                type: matchData.isHost ? 'rejoin_host' : 'rejoin_client',
-                roomId: matchData.roomId,
-                username: matchData.username || 'Player'
-            }));
-
-            function startOnline() {
-                game.scene.stop('MenuScene');
-                game.scene.start('OnlineScene', {
-                    isHost: matchData.isHost,
-                    roomId: matchData.roomId,
-                    ws: ws,
-                    username: matchData.username || 'Player',
-                    opponentName: matchData.opponentName || 'Opponent'
-                });
-            }
-
-            // Phaser might still be booting
-            if (game.isRunning) {
-                startOnline();
-            } else {
-                game.events.once('ready', startOnline);
-                // Fallback: Phaser 3 sometimes doesn't fire 'ready'
-                setTimeout(() => {
-                    if (game.scene.isActive('MenuScene') || game.isRunning) {
-                        startOnline();
+        // Wait for Phaser to fully boot, then connect and start
+        function waitForPhaser(callback) {
+            const check = setInterval(() => {
+                // MenuScene will be the first active scene
+                try {
+                    if (game.scene.getScene('MenuScene')) {
+                        clearInterval(check);
+                        callback();
                     }
-                }, 1000);
-            }
-        };
+                } catch(e) {}
+            }, 100);
+            // Safety timeout
+            setTimeout(() => { clearInterval(check); callback(); }, 3000);
+        }
 
-        ws.onerror = () => {
-            console.error('Failed to connect to game server');
-            sessionStorage.removeItem('online_match');
-        };
+        waitForPhaser(() => {
+            console.log('[Online] Phaser ready, connecting WS...');
+            const ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                console.log('[Online] WS connected, rejoining room:', matchData.roomId);
+                ws.send(JSON.stringify({
+                    type: matchData.isHost ? 'rejoin_host' : 'rejoin_client',
+                    roomId: matchData.roomId,
+                    username: matchData.username || 'Player'
+                }));
+
+                // Small delay to let rejoin process on server
+                setTimeout(() => {
+                    console.log('[Online] Starting OnlineScene...');
+                    game.scene.stop('MenuScene');
+                    game.scene.start('OnlineScene', {
+                        isHost: matchData.isHost,
+                        roomId: matchData.roomId,
+                        ws: ws,
+                        username: matchData.username || 'Player',
+                        opponentName: matchData.opponentName || 'Opponent'
+                    });
+                }, 300);
+            };
+
+            ws.onerror = (err) => {
+                console.error('[Online] WS error:', err);
+                sessionStorage.removeItem('online_match');
+                alert('Cannot connect to game server. Make sure it is running on port 3001.');
+            };
+        });
     }
 }
