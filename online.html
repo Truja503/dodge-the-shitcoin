@@ -301,6 +301,9 @@ body::before {
       <div class="room-code-display">
         <div style="color:#64748b; font-size:0.7rem; letter-spacing:2px; text-transform:uppercase;">Room Code</div>
         <div class="code" id="code-display"></div>
+        <div id="share-link" style="margin:0.5rem 0;">
+          <input type="text" id="share-url" readonly style="width:100%;padding:0.5rem;font-size:0.75rem;font-family:'Space Grotesk',sans-serif;background:rgba(10,14,25,0.9);border:1px solid #1e293b;border-radius:8px;color:#38bdf8;text-align:center;cursor:pointer;" onclick="this.select();document.execCommand('copy');showStatus('Link copied!','success')">
+        </div>
         <div class="waiting" id="waiting-msg">Waiting for opponent…</div>
       </div>
     </div>
@@ -409,6 +412,8 @@ function handleMessage(msg) {
       document.getElementById('create-btn').style.display = 'none';
       document.getElementById('room-code-area').style.display = 'block';
       document.getElementById('code-display').textContent = msg.roomId;
+      const joinUrl = `${window.location.origin}/online.html?join=${msg.roomId}`;
+      document.getElementById('share-url').value = joinUrl;
       showStatus('Room created! Share the code with your opponent.', 'success');
       break;
 
@@ -507,6 +512,17 @@ function renderRooms(rooms) {
 
 // Auto-connect and refresh rooms
 connectWS().catch(() => {});
+
+// Auto-join if ?join=CODE in URL
+const urlJoinCode = new URLSearchParams(window.location.search).get('join');
+if (urlJoinCode) {
+  document.getElementById('room-code-input').value = urlJoinCode.toUpperCase();
+  showPanel('join');
+  // Auto-join after WS connects
+  connectWS().then(() => {
+    setTimeout(() => joinRoom(urlJoinCode.toUpperCase()), 500);
+  }).catch(() => {});
+}
 refreshInterval = setInterval(() => {
   if (ws && ws.readyState === 1) listRooms();
 }, 3000);
