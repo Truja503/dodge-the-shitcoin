@@ -12,6 +12,8 @@ export function loadPlayerAssets(scene) {
 }
 
 export function createPlayerAnimations(scene) {
+    // Skip if already created (shared animation manager across scenes)
+    if (scene.anims.exists('player_idle')) return;
 
     // IDLE animation
     scene.anims.create({

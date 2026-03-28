@@ -37,22 +37,19 @@ if (isOnlineMode) {
         const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const wsUrl = matchData.wsUrl || `${wsProtocol}//${window.location.hostname}:3001`;
 
-        // Wait for Phaser to fully boot, then connect and start
-        function waitForPhaser(callback) {
-            const check = setInterval(() => {
-                // MenuScene will be the first active scene
-                try {
-                    if (game.scene.getScene('MenuScene')) {
-                        clearInterval(check);
-                        callback();
-                    }
-                } catch(e) {}
-            }, 100);
-            // Safety timeout
-            setTimeout(() => { clearInterval(check); callback(); }, 3000);
-        }
+        // Wait for Phaser to boot, then connect
+        let started = false;
+        const check = setInterval(() => {
+            try {
+                if (game.scene.getScene('MenuScene') && !started) {
+                    clearInterval(check);
+                    started = true;
+                    launchOnline();
+                }
+            } catch(e) {}
+        }, 100);
 
-        waitForPhaser(() => {
+        function launchOnline() {
             console.log('[Online] Phaser ready, connecting WS...');
             const ws = new WebSocket(wsUrl);
 
@@ -64,7 +61,6 @@ if (isOnlineMode) {
                     username: matchData.username || 'Player'
                 }));
 
-                // Small delay to let rejoin process on server
                 setTimeout(() => {
                     console.log('[Online] Starting OnlineScene...');
                     game.scene.stop('MenuScene');
@@ -78,11 +74,11 @@ if (isOnlineMode) {
                 }, 300);
             };
 
-            ws.onerror = (err) => {
-                console.error('[Online] WS error:', err);
+            ws.onerror = () => {
+                console.error('[Online] WS error');
                 sessionStorage.removeItem('online_match');
-                alert('Cannot connect to game server. Make sure it is running on port 3001.');
+                alert('Cannot connect to game server.');
             };
-        });
+        }
     }
 }
