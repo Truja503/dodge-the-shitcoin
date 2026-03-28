@@ -402,18 +402,7 @@ export default class GameScene extends Phaser.Scene {
     hitByEnemy(playerObj) {
         if (!playerObj || !playerObj.sprite || !playerObj.sprite.active) return;
 
-        const playerId = playerObj === this.player ? "player1" : "player2";
-
-        if (this.bitcoinsCollected[playerId] > 0) {
-            this.bitcoinsCollected[playerId]--;
-        }
-
-        if (playerId === "player1") {
-            if (player1Score) player1Score.textContent = this.bitcoinsCollected.player1;
-        } else {
-            if (player2Score) player2Score.textContent = this.bitcoinsCollected.player2;
-        }
-
+        // Enemies stun but do NOT reduce score
         if (playerObj.sprite && playerObj.sprite.body) playerObj.sprite.setVelocity(0, 0);
         playerObj.canMove = false;
         this.time.delayedCall(1000, () => {

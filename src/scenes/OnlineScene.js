@@ -722,10 +722,7 @@ export default class OnlineScene extends Phaser.Scene {
 
     hitByEnemy(playerObj) {
         if (!playerObj || !playerObj.sprite || !playerObj.sprite.active) return;
-        const playerId = playerObj === this.player ? "player1" : "player2";
-        if (this.bitcoinsCollected[playerId] > 0) {
-            this.bitcoinsCollected[playerId]--;
-        }
+        // Enemies stun but do NOT reduce score
         if (playerObj.sprite && playerObj.sprite.body) playerObj.sprite.setVelocity(0, 0);
         playerObj.canMove = false;
         this.time.delayedCall(1000, () => {

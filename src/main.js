@@ -27,9 +27,9 @@ const config = {
 
 const game = new Phaser.Game(config);
 
-// Check if returning from online lobby
-const urlParams = new URLSearchParams(window.location.search);
-if (urlParams.get('mode') === 'online') {
+// Check if returning from online lobby (use hash because serve strips query params)
+const isOnlineMode = window.location.hash === '#online' || new URLSearchParams(window.location.search).get('mode') === 'online';
+if (isOnlineMode) {
     const matchData = JSON.parse(sessionStorage.getItem('online_match') || '{}');
     console.log('[Online] Match data:', matchData);
 
