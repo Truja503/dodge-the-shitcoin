@@ -2,217 +2,288 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>Tournament — Dodge the Shitcoin</title>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&display=swap" rel="stylesheet">
 <style>
+@font-face { font-family:"Cinzel";    src:url("../assets/fonts/cinzel/Cinzel-Regular.ttf") format("truetype"); }
+@font-face { font-family:"CinzelBold";src:url("../assets/fonts/cinzel/Cinzel-Bold.ttf")    format("truetype"); }
+
 :root {
-  --bg: #0b0f1a;
-  --bg-card: #141927;
-  --border: #1e293b;
-  --gold: #f5a623;
-  --gold-bright: #ffd700;
-  --gold-dim: #b8860b;
-  --green: #22c55e;
-  --red: #ef4444;
-  --text: #e2e8f0;
-  --text-dim: #64748b;
-  --text-bright: #f8fafc;
-  --accent: #38bdf8;
+  --bg:      #060810;
+  --card:    rgba(8,11,20,0.88);
+  --border:  rgba(245,166,35,0.18);
+  --borderhi:rgba(245,166,35,0.5);
+  --gold:    #ffd700;
+  --goldmid: #f5a623;
+  --golddim: #c8a060;
+  --golddark:#6b5a30;
+  --text:    #d4b870;
+  --textdim: #6b5030;
+  --textbri: #ffeaa0;
+  --err:     #ef6644;
+  --ok:      #c8a060;
 }
 
-* { margin: 0; padding: 0; box-sizing: border-box; }
+*{margin:0;padding:0;box-sizing:border-box;}
 
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: 'Inter', sans-serif;
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+html,body{
+  min-height:100%;
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Cinzel',serif;
+  overflow-x:hidden;
 }
 
-.container {
-  width: 100%;
-  max-width: 440px;
-  padding: 1rem;
+body{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-height:100dvh;
+  padding:1rem;
 }
 
-h1 {
-  font-family: 'Cinzel', serif;
-  font-weight: 900;
-  text-align: center;
-  margin-bottom: 2rem;
-  background: linear-gradient(135deg, var(--gold), var(--gold-bright));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  font-size: 1.8rem;
-  letter-spacing: 2px;
-  filter: drop-shadow(0 0 15px rgba(245,166,35,0.3));
+/* CANVAS */
+#particle-canvas{
+  position:fixed;inset:0;
+  pointer-events:none;z-index:0;
+  width:100%;height:100%;
 }
 
-.tabs {
-  display: flex;
-  margin-bottom: 1.5rem;
-  border-radius: 10px;
-  overflow: hidden;
-  border: 1px solid var(--border);
-}
-.tab {
-  flex: 1;
-  padding: 0.7rem;
-  text-align: center;
-  cursor: pointer;
-  font-family: 'Cinzel', serif;
-  font-size: 0.85rem;
-  font-weight: 700;
-  background: var(--bg-card);
-  color: var(--text-dim);
-  transition: all 0.2s;
-  border: none;
-}
-.tab.active {
-  background: rgba(245,166,35,0.1);
-  color: var(--gold);
+/* SCANLINES */
+body::after{
+  content:'';position:fixed;inset:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.07) 2px,rgba(0,0,0,0.07) 4px);
+  pointer-events:none;z-index:999;
 }
 
-.card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 2rem;
+/* VIGNETTE */
+body::before{
+  content:'';position:fixed;inset:0;
+  background:radial-gradient(ellipse at center,transparent 35%,rgba(0,0,0,0.88) 100%);
+  pointer-events:none;z-index:1;
 }
 
-.field {
-  margin-bottom: 1.2rem;
+/* CONTAINER */
+.container{
+  position:relative;z-index:10;
+  width:100%;max-width:460px;
+  padding:0.5rem;
+  animation:fadeInUp 0.7s cubic-bezier(0.23,1,0.32,1) both;
 }
-.field label {
-  display: block;
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: var(--text-dim);
-  margin-bottom: 0.4rem;
-}
-.field input {
-  width: 100%;
-  padding: 0.7rem 1rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg);
-  color: var(--text-bright);
-  font-size: 1rem;
-  outline: none;
-  transition: border 0.2s;
-}
-.field input:focus {
-  border-color: var(--gold);
-  box-shadow: 0 0 10px rgba(245,166,35,0.15);
+@keyframes fadeInUp{
+  from{opacity:0;transform:translateY(28px);}
+  to{opacity:1;transform:translateY(0);}
 }
 
-.btn {
-  display: block;
-  width: 100%;
-  padding: 0.8rem;
-  border: none;
-  border-radius: 10px;
-  font-family: 'Cinzel', serif;
-  font-weight: 700;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: all 0.2s;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  margin-top: 0.5rem;
+/* TITLE */
+.title-wrap{text-align:center;margin-bottom:1.5rem;}
+h1{
+  font-family:'CinzelBold',serif;
+  font-size:clamp(1.4rem,6vw,2rem);
+  letter-spacing:3px;
+  background:linear-gradient(135deg,var(--goldmid),var(--gold),var(--goldmid));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 0 18px rgba(245,166,35,0.4));
+  animation:titlePulse 3s ease-in-out infinite;
 }
-.btn-gold {
-  background: linear-gradient(135deg, var(--gold), var(--gold-dim));
-  color: #0b0f1a;
+@keyframes titlePulse{
+  0%,100%{filter:drop-shadow(0 0 18px rgba(245,166,35,0.4));}
+  50%{filter:drop-shadow(0 0 32px rgba(245,166,35,0.75));}
 }
-.btn-gold:hover {
-  box-shadow: 0 0 20px rgba(245,166,35,0.3);
-  transform: translateY(-1px);
+.title-sub{
+  font-size:clamp(0.48rem,2vw,0.6rem);
+  letter-spacing:4px;color:var(--golddark);
+  text-transform:uppercase;margin-top:0.4rem;opacity:0.7;
+}
+.title-line{
+  width:100%;height:1px;
+  background:linear-gradient(90deg,transparent,var(--goldmid),transparent);
+  margin-top:0.8rem;opacity:0.3;
+  animation:linePulse 2.5s ease-in-out infinite;
+}
+@keyframes linePulse{0%,100%{opacity:0.2;}50%{opacity:0.5;}}
+
+/* CARD */
+.card{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:4px;
+  padding:clamp(1.2rem,4vw,1.8rem);
+  position:relative;overflow:hidden;
+  backdrop-filter:blur(12px);
+  box-shadow:0 0 40px rgba(245,166,35,0.04),inset 0 1px 0 rgba(255,255,255,0.04);
+}
+.card::before,.card::after{content:'';position:absolute;width:16px;height:16px;}
+.card::before{top:0;left:0;border-top:2px solid var(--goldmid);border-left:2px solid var(--goldmid);}
+.card::after{bottom:0;right:0;border-bottom:2px solid var(--goldmid);border-right:2px solid var(--goldmid);}
+
+/* TABS */
+.tabs{
+  display:flex;margin-bottom:1.2rem;
+  border-radius:3px;overflow:hidden;
+  border:1px solid var(--border);
+}
+.tab{
+  flex:1;padding:0.7rem 0.5rem;
+  text-align:center;cursor:pointer;
+  font-family:'CinzelBold',serif;
+  font-size:clamp(0.62rem,2.5vw,0.72rem);
+  letter-spacing:2px;text-transform:uppercase;
+  color:var(--textdim);
+  background:rgba(0,0,0,0.4);
+  border:none;transition:all 0.25s;position:relative;
+}
+.tab::after{
+  content:'';position:absolute;
+  bottom:0;left:0;width:100%;height:2px;
+  background:var(--goldmid);transform:scaleX(0);transition:transform 0.25s;
+}
+.tab.active{color:var(--gold);background:rgba(245,166,35,0.07);}
+.tab.active::after{transform:scaleX(1);}
+
+/* FIELDS */
+.field{margin-bottom:1.1rem;}
+.field label{
+  display:flex;align-items:center;gap:0.35rem;
+  font-size:clamp(0.55rem,2vw,0.62rem);
+  text-transform:uppercase;letter-spacing:2px;
+  color:var(--golddim);opacity:0.7;margin-bottom:0.4rem;
+}
+.field label::before{content:'▸';font-size:0.65rem;}
+.field input{
+  width:100%;
+  padding:clamp(0.65rem,2.5vw,0.75rem) clamp(0.7rem,3vw,1rem);
+  font-family:'Cinzel',serif;
+  font-size:clamp(0.8rem,3.5vw,0.9rem);
+  letter-spacing:1px;
+  background:rgba(0,0,0,0.45);
+  border:1px solid var(--border);border-radius:3px;
+  color:var(--textbri);outline:none;
+  transition:all 0.25s;
+  /* prevent iOS zoom */
+  font-size:max(16px, clamp(0.8rem,3.5vw,0.9rem));
+}
+.field input::placeholder{color:var(--textdim);font-size:0.78rem;}
+.field input:focus{
+  border-color:var(--goldmid);
+  background:rgba(245,166,35,0.04);
+  box-shadow:0 0 14px rgba(245,166,35,0.1),inset 0 0 10px rgba(245,166,35,0.03);
 }
 
-.message {
-  margin-top: 1rem;
-  padding: 0.8rem 1rem;
-  border-radius: 8px;
-  font-size: 0.85rem;
-  display: none;
+/* BRACKET BUTTONS */
+.format-row{display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;}
+.format-btn{
+  flex:1;min-width:60px;
+  padding:0.45rem 0.3rem;
+  font-family:'Cinzel',serif;
+  font-size:clamp(0.55rem,2vw,0.65rem);
+  letter-spacing:1px;text-align:center;
+  background:rgba(0,0,0,0.4);
+  border:1px solid var(--border);border-radius:3px;
+  color:var(--textdim);cursor:pointer;transition:all 0.2s;
 }
-.message.success {
-  display: block;
-  background: rgba(34,197,94,0.1);
-  border: 1px solid rgba(34,197,94,0.3);
-  color: var(--green);
-}
-.message.error {
-  display: block;
-  background: rgba(239,68,68,0.1);
-  border: 1px solid rgba(239,68,68,0.3);
-  color: var(--red);
-}
-.message a {
-  color: var(--accent);
-  text-decoration: underline;
+.format-btn:hover{border-color:var(--goldmid);color:var(--golddim);}
+.format-btn.active{
+  background:rgba(245,166,35,0.12);
+  border-color:var(--goldmid);color:var(--gold);
 }
 
-.back-link {
-  text-align: center;
-  margin-top: 1.5rem;
-  font-size: 0.8rem;
+/* BUTTON */
+.btn{
+  display:block;width:100%;
+  padding:clamp(0.75rem,3vw,0.9rem);
+  font-family:'CinzelBold',serif;
+  font-size:clamp(0.8rem,3.5vw,0.92rem);
+  letter-spacing:3px;text-transform:uppercase;
+  border:none;border-radius:3px;cursor:pointer;
+  transition:all 0.25s;margin-top:0.5rem;
+  position:relative;overflow:hidden;
+  background:linear-gradient(135deg,var(--goldmid),#b8860b);
+  color:#060810;
+  box-shadow:0 0 20px rgba(245,166,35,0.15);
+  /* touch */
+  -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;
 }
-.back-link a {
-  color: var(--text-dim);
-  text-decoration: none;
+.btn::before{
+  content:'';position:absolute;
+  top:-100%;left:-100%;width:300%;height:300%;
+  background:linear-gradient(135deg,transparent 40%,rgba(255,255,255,0.12) 50%,transparent 60%);
+  transition:all 0.5s;
 }
-.back-link a:hover { color: var(--text); }
+.btn:hover::before{top:100%;left:100%;}
+.btn:hover{box-shadow:0 0 35px rgba(245,166,35,0.45);transform:translateY(-2px);}
+.btn:active{transform:translateY(0);}
 
-.format-btn {
-  flex: 1;
-  padding: 0.5rem 0.3rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg);
-  color: var(--text-dim);
-  font-family: 'Inter', sans-serif;
-  font-size: 0.72rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-  text-align: center;
+/* MESSAGES */
+.message{
+  margin-top:0.9rem;padding:0.75rem 0.9rem;
+  border-radius:3px;font-size:clamp(0.65rem,2.5vw,0.72rem);
+  letter-spacing:0.5px;line-height:1.6;display:none;
 }
-.format-btn:hover { border-color: var(--gold); color: var(--text); }
-.format-btn.active {
-  background: rgba(245,166,35,0.15);
-  border-color: var(--gold);
-  color: var(--gold);
+.message.success{
+  display:block;
+  color:var(--ok);background:rgba(245,166,35,0.06);
+  border:1px solid rgba(245,166,35,0.2);
+}
+.message.error{
+  display:block;
+  color:var(--err);background:rgba(239,102,68,0.08);
+  border:1px solid rgba(239,102,68,0.25);
+}
+.message a{color:var(--gold);text-decoration:underline;}
+.message strong{color:var(--gold);}
+
+/* BACK */
+.back-link{
+  text-align:center;margin-top:1.2rem;
+  font-size:clamp(0.6rem,2.5vw,0.7rem);letter-spacing:2px;
+}
+.back-link a{color:var(--textdim);text-decoration:none;text-transform:uppercase;transition:color 0.2s;}
+.back-link a:hover{color:var(--golddim);}
+
+/* MOBILE */
+@media(max-width:420px){
+  body{padding:0.5rem;align-items:flex-start;padding-top:env(safe-area-inset-top,0.5rem);}
+  .container{padding:0.4rem;}
+  h1{letter-spacing:2px;}
+  .card{padding:1.1rem 1rem;}
+  .card::before,.card::after{width:12px;height:12px;}
+  .tab{letter-spacing:1px;}
+  .format-row{gap:4px;}
+  .format-btn{min-width:50px;padding:0.4rem 0.2rem;}
+  .message{font-size:0.65rem;}
 }
 </style>
 </head>
 <body>
 
+<canvas id="particle-canvas"></canvas>
+
 <div class="container">
-  <h1>⚔️ Tournament</h1>
+  <div class="title-wrap">
+    <h1>⚔ Tournament</h1>
+    <div class="title-sub">Dodge the Shitcoin // Arena Protocol</div>
+    <div class="title-line"></div>
+  </div>
 
   <div class="tabs">
-    <button class="tab active" onclick="switchTab('join')">Join</button>
-    <button class="tab" onclick="switchTab('create')">Create New</button>
+    <button class="tab active" onclick="switchTab('join')">[ Join ]</button>
+    <button class="tab" onclick="switchTab('create')">[ Create ]</button>
   </div>
 
   <!-- Join -->
   <div class="card" id="join-panel">
     <div class="field">
       <label>Tournament Key</label>
-      <input type="text" id="join-key" placeholder="e.g. A1B2C3" maxlength="12">
+      <input type="text" id="join-key" placeholder="e.g. A1B2C3" maxlength="12" autocomplete="off" autocorrect="off" autocapitalize="off">
     </div>
     <div class="field">
-      <label>Your Username</label>
-      <input type="text" id="join-username" placeholder="e.g. Satoshi" maxlength="20">
+      <label>Warrior Name</label>
+      <input type="text" id="join-username" placeholder="e.g. Satoshi" maxlength="20" autocomplete="off" autocorrect="off" autocapitalize="off">
     </div>
-    <button class="btn btn-gold" onclick="joinTournament()">Join Tournament</button>
+    <button class="btn" onclick="joinTournament()">Enter the Arena</button>
     <div class="message" id="join-msg"></div>
   </div>
 
@@ -220,103 +291,185 @@ h1 {
   <div class="card" id="create-panel" style="display:none;">
     <div class="field">
       <label>Tournament Name</label>
-      <input type="text" id="create-name" placeholder="e.g. Bitcoin Cup 2026" maxlength="40">
+      <input type="text" id="create-name" placeholder="e.g. Bitcoin Cup 2026" maxlength="40" autocomplete="off">
     </div>
     <div class="field">
-      <label>Your Username (Admin)</label>
-      <input type="text" id="create-username" placeholder="e.g. Satoshi" maxlength="20">
+      <label>Admin Name</label>
+      <input type="text" id="create-username" placeholder="e.g. Satoshi" maxlength="20" autocomplete="off" autocorrect="off" autocapitalize="off">
     </div>
     <div class="field">
       <label>Bracket Size</label>
-      <div style="display:flex;gap:8px;margin-top:4px;">
+      <div class="format-row">
         <button class="format-btn active" data-format="2" onclick="selectFormat(2)">Final (2)</button>
         <button class="format-btn" data-format="4" onclick="selectFormat(4)">Semis (4)</button>
-        <button class="format-btn" data-format="8" onclick="selectFormat(8)">Quarters (8)</button>
+        <button class="format-btn" data-format="8" onclick="selectFormat(8)">Qtrs (8)</button>
         <button class="format-btn" data-format="16" onclick="selectFormat(16)">R16 (16)</button>
       </div>
     </div>
-    <button class="btn btn-gold" onclick="createTournament()">Create Tournament</button>
+    <button class="btn" onclick="createTournament()">Forge Tournament</button>
     <div class="message" id="create-msg"></div>
   </div>
 
-  <div class="back-link"><a href="/">← Back to Game</a></div>
+  <div class="back-link"><a href="/">← Return to Game</a></div>
 </div>
 
 <script>
-const API = 'http://localhost:3001/api';
-let selectedFormat = 2;
+// ── PARTICLES ──
+(function(){
+  const canvas = document.getElementById('particle-canvas');
+  const ctx    = canvas.getContext('2d');
+  const isMob  = window.innerWidth < 500;
 
-function selectFormat(fmt) {
-  selectedFormat = fmt;
-  document.querySelectorAll('.format-btn').forEach(b => {
-    b.classList.toggle('active', parseInt(b.dataset.format) === fmt);
+  function resize(){
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  const STRINGS = [
+    'The Times 03/Jan/2009',
+    'Chancellor on brink of second bailout for banks',
+    '4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b',
+    '000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f',
+    'KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgd9M7rFU73sVHnoWn',
+    'nonce:2083236893  bits:486604799',
+    'block:0  prev:0000...0000',
+    '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa',
+  ];
+  const PAL = ['245,166,35','200,130,40','255,220,100','160,100,30'];
+
+  class Bit{
+    constructor(init){this.reset(init);}
+    reset(init=false){
+      this.x=Math.random()*canvas.width;
+      this.y=init?Math.random()*canvas.height:canvas.height+10;
+      this.char=Math.random()<0.78?(Math.random()<0.5?'0':'1'):(Math.random()<0.5?'₿':'⚡');
+      this.size=isMob?6+Math.random()*5:9+Math.random()*7;
+      this.vy=-(0.12+Math.random()*0.5);this.vx=(Math.random()-.5)*.2;
+      this.life=0;this.maxLife=200+Math.random()*200;
+      this.col=PAL[Math.floor(Math.random()*PAL.length)];
+      this.bright=Math.random()<0.1;
+    }
+    tick(){this.life++;this.x+=this.vx;this.y+=this.vy;if(this.life>=this.maxLife||this.y<-20)this.reset();}
+    draw(){
+      const p=this.life/this.maxLife;
+      const a=(p<.15?p/.15:p>.8?1-(p-.8)/.2:1)*(this.bright?.75:.22);
+      ctx.save();ctx.globalAlpha=a;
+      if(this.bright){ctx.shadowColor=`rgba(${this.col},.9)`;ctx.shadowBlur=8;}
+      ctx.fillStyle=`rgba(${this.col},1)`;
+      ctx.font=`bold ${this.size}px 'Cinzel',serif`;
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(this.char,this.x,this.y);ctx.restore();
+    }
+  }
+  class Str{
+    constructor(init){this.reset(init);}
+    reset(init=false){
+      this.text=STRINGS[Math.floor(Math.random()*STRINGS.length)];
+      this.x=Math.random()*canvas.width;
+      this.y=init?Math.random()*canvas.height:canvas.height+20;
+      this.size=isMob?5+Math.random()*2:7+Math.random()*3;
+      this.vy=-(0.07+Math.random()*.18);this.vx=(Math.random()-.5)*.1;
+      this.life=0;this.maxLife=400+Math.random()*350;
+      this.col=PAL[Math.floor(Math.random()*PAL.length)];
+      this.maxA=0.07+Math.random()*.07;
+    }
+    tick(){this.life++;this.x+=this.vx;this.y+=this.vy;if(this.life>=this.maxLife||this.y<-20)this.reset();}
+    draw(){
+      const p=this.life/this.maxLife;
+      const a=(p<.1?p/.1:p>.85?1-(p-.85)/.15:1)*this.maxA;
+      ctx.save();ctx.globalAlpha=a;ctx.fillStyle=`rgba(${this.col},1)`;
+      ctx.font=`${this.size}px 'Cinzel',serif`;ctx.textAlign='left';ctx.textBaseline='middle';
+      ctx.fillText(this.text,this.x,this.y);ctx.restore();
+    }
+  }
+
+  const colW=isMob?24:18;
+  const drops=Array.from({length:Math.floor(window.innerWidth/colW)},(_,i)=>({
+    x:i*colW+colW/2,y:Math.random()*canvas.height,
+    speed:.4+Math.random()*.9,alpha:.03+Math.random()*.04
+  }));
+
+  const bitCount = isMob ? 45 : 85;
+  const strCount = isMob ? 7  : 14;
+  const bits=Array.from({length:bitCount},()=>new Bit(true));
+  const strs=Array.from({length:strCount},()=>new Str(true));
+
+  const loop=()=>{
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    drops.forEach(d=>{
+      ctx.save();ctx.globalAlpha=d.alpha;
+      ctx.fillStyle='rgba(200,130,40,1)';
+      ctx.font=`bold 11px 'Cinzel',serif`;
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(Math.random()<.5?'0':'1',d.x,d.y);ctx.restore();
+      d.y+=d.speed;if(d.y>canvas.height+20)d.y=-10;
+    });
+    strs.forEach(s=>{s.tick();s.draw();});
+    bits.forEach(b=>{b.tick();b.draw();});
+    requestAnimationFrame(loop);
+  };
+  loop();
+})();
+
+// ── LOGIC ──
+const API='http://localhost:3001/api';
+let selectedFormat=2;
+
+function selectFormat(fmt){
+  selectedFormat=fmt;
+  document.querySelectorAll('.format-btn').forEach(b=>{
+    b.classList.toggle('active',parseInt(b.dataset.format)===fmt);
   });
 }
 
-function switchTab(tab) {
-  document.querySelectorAll('.tab').forEach((t, i) => {
-    t.classList.toggle('active', (tab === 'join' && i === 0) || (tab === 'create' && i === 1));
+function switchTab(tab){
+  document.querySelectorAll('.tab').forEach((t,i)=>{
+    t.classList.toggle('active',(tab==='join'&&i===0)||(tab==='create'&&i===1));
   });
-  document.getElementById('join-panel').style.display = tab === 'join' ? 'block' : 'none';
-  document.getElementById('create-panel').style.display = tab === 'create' ? 'block' : 'none';
+  document.getElementById('join-panel').style.display=tab==='join'?'block':'none';
+  document.getElementById('create-panel').style.display=tab==='create'?'block':'none';
 }
 
-function showMsg(id, text, type) {
-  const el = document.getElementById(id);
-  el.className = 'message ' + type;
-  el.innerHTML = text;
+function showMsg(id,text,type){
+  const el=document.getElementById(id);
+  el.className='message '+type;el.innerHTML=text;
 }
 
-async function joinTournament() {
-  const key = document.getElementById('join-key').value.trim();
-  const username = document.getElementById('join-username').value.trim();
-  if (!key || !username) return showMsg('join-msg', 'Fill in all fields', 'error');
-
-  try {
-    const res = await fetch(`${API}/tournaments/${key}/join`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username })
+async function joinTournament(){
+  const key=document.getElementById('join-key').value.trim();
+  const username=document.getElementById('join-username').value.trim();
+  if(!key||!username)return showMsg('join-msg','▸ Fill in all fields','error');
+  try{
+    const res=await fetch(`${API}/tournaments/${key}/join`,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({username})
     });
-    const data = await res.json();
-    if (!res.ok) return showMsg('join-msg', data.error || 'Failed', 'error');
-    showMsg('join-msg', `Joined! <a href="index.html?key=${key}" target="_blank">View Bracket →</a>`, 'success');
-  } catch (e) {
-    showMsg('join-msg', 'Network error — is the server running?', 'error');
-  }
+    const data=await res.json();
+    if(!res.ok)return showMsg('join-msg','▸ '+(data.error||'Failed'),'error');
+    showMsg('join-msg',`▸ Arena entered! <a href="index.html?key=${key}" target="_blank">View Bracket →</a>`,'success');
+  }catch(e){showMsg('join-msg','▸ Network error — is the server running?','error');}
 }
 
-async function createTournament() {
-  const name = document.getElementById('create-name').value.trim();
-  const username = document.getElementById('create-username').value.trim();
-  if (!name || !username) return showMsg('create-msg', 'Fill in all fields', 'error');
-
-  try {
-    const res = await fetch(`${API}/tournaments`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, username, format: selectedFormat })
+async function createTournament(){
+  const name=document.getElementById('create-name').value.trim();
+  const username=document.getElementById('create-username').value.trim();
+  if(!name||!username)return showMsg('create-msg','▸ Fill in all fields','error');
+  try{
+    const res=await fetch(`${API}/tournaments`,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({name,username,format:selectedFormat})
     });
-    const data = await res.json();
-    if (!res.ok) return showMsg('create-msg', data.error || 'Failed', 'error');
-
-    const bracketUrl = `index.html?key=${data.key}&admin=${data.adminKey}`;
-    const viewUrl = `index.html?key=${data.key}`;
-    showMsg('create-msg',
-      `Tournament created!<br>
-       <br>Share key: <strong>${data.key}</strong>
-       <br>Admin key: <strong>${data.adminKey}</strong> (keep secret!)
-       <br><br><a href="${bracketUrl}" target="_blank">Open Admin Bracket →</a>
-       <br><a href="${viewUrl}" target="_blank">Open Viewer Bracket →</a>`,
-      'success');
-  } catch (e) {
-    showMsg('create-msg', 'Network error — is the server running?', 'error');
-  }
+    const data=await res.json();
+    if(!res.ok)return showMsg('create-msg','▸ '+(data.error||'Failed'),'error');
+    // Redirect straight to admin bracket
+    window.location.href = `index.html?key=${data.key}&admin=${data.adminKey}`;
+  }catch(e){showMsg('create-msg','▸ Network error — is the server running?','error');}
 }
 
-// Auto-fill key from URL param
-const params = new URLSearchParams(window.location.search);
-if (params.get('key')) document.getElementById('join-key').value = params.get('key');
+const params=new URLSearchParams(window.location.search);
+if(params.get('key'))document.getElementById('join-key').value=params.get('key');
 </script>
 </body>
 </html>
