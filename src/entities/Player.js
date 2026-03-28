@@ -39,7 +39,6 @@ export default class Player {
         this.currentAnim = 'player_idle';
         this.sprite.play('player_idle');
 
-        this.controller = false;
     }
 
     update(cursors, pad) {
@@ -53,12 +52,35 @@ export default class Player {
         let vx = 0;
         let vy = 0;
 
-        if (this.controller && pad && pad.axes && pad.axes.length >= 2) {
-            const axisX = pad.axes[0].value;
-            const axisY = pad.axes[1].value;
-            if (Math.abs(axisX) > 0.1) vx = axisX * this.speed;
-            if (Math.abs(axisY) > 0.1) vy = axisY * this.speed;
-        } else {
+        // Gamepad: auto-detect any connected pad (no flag needed)
+        const hasPad = pad && pad.axes && pad.axes.length >= 2;
+        if (hasPad) {
+            const axisX = pad.axes[0].getValue ? pad.axes[0].getValue() : pad.axes[0].value;
+            const axisY = pad.axes[1].getValue ? pad.axes[1].getValue() : pad.axes[1].value;
+            if (Math.abs(axisX) > 0.15) vx = axisX * this.speed;
+            if (Math.abs(axisY) > 0.15) vy = axisY * this.speed;
+
+            // D-pad fallback
+            if (vx === 0 && vy === 0) {
+                if (pad.left)  vx = -this.speed;
+                if (pad.right) vx =  this.speed;
+                if (pad.up)    vy = -this.speed;
+                if (pad.down)  vy =  this.speed;
+            }
+
+            // Throw with button (X on PS4 = index 0, A on Xbox = index 0)
+            if (pad.buttons && pad.buttons[0] && pad.buttons[0].pressed) {
+                if (!this._padThrowLock) {
+                    this._padThrowLock = true;
+                    this.throwDollar();
+                }
+            } else {
+                this._padThrowLock = false;
+            }
+        }
+
+        // Keyboard (additive — works alongside gamepad)
+        if (vx === 0 && vy === 0) {
             vx = cursors.left.isDown  ? -this.speed :
                  cursors.right.isDown ?  this.speed : 0;
             vy = cursors.up.isDown    ? -this.speed :

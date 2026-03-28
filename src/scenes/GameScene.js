@@ -113,10 +113,7 @@ export default class GameScene extends Phaser.Scene {
         if (player1Score) player1Score.textContent = '0';
         if (player2Score) player2Score.textContent = '0';
 
-        // ── Gamepad ──────────────────────────────────────────────
-        this.input.gamepad.once('connected', (pad) => {
-            this.player.controller = true;
-        });
+        // ── Gamepad — auto-detected in Player.update(), no flag needed ──
 
         // ── Spawner ──────────────────────────────────────────────
         this.spawner = new Spawner(this);
@@ -232,9 +229,11 @@ export default class GameScene extends Phaser.Scene {
         this._updateGreed();
         this.spawner.currentEnemySpeed = this._baseDifficultySpeed + (this.greedLevel * 80);
 
-        const pad = this.input.gamepad.getPad(0);
-        this.player.update(this.cursors, pad);
-        this.player2.update(this.wasdKeys);
+        // Pad 0 = Player1, Pad 1 = Player2 (any controller type)
+        const pad1 = this.input.gamepad.getPad(0);
+        const pad2 = this.input.gamepad.getPad(1);
+        this.player.update(this.cursors, pad1);
+        this.player2.update(this.wasdKeys, pad2);
 
         // Lanzar dólar
         if (Phaser.Input.Keyboard.JustDown(this.spaceKey)) this.player.throwDollar();

@@ -41,8 +41,7 @@ export default class Player2 {
         this.sprite.play('player_idle');
     }
 
-    update(keys) {
-        if (!keys) return;
+    update(keys, pad) {
         if (!this.sprite || !this.sprite.body) return;
 
         if (!this.canMove) {
@@ -53,10 +52,40 @@ export default class Player2 {
         let vx = 0;
         let vy = 0;
 
-        if (keys.A.isDown) vx -= this.speed;
-        if (keys.D.isDown) vx += this.speed;
-        if (keys.W.isDown) vy -= this.speed;
-        if (keys.S.isDown) vy += this.speed;
+        // Gamepad: auto-detect (pad index 1 for player2, or any passed pad)
+        const hasPad = pad && pad.axes && pad.axes.length >= 2;
+        if (hasPad) {
+            const axisX = pad.axes[0].getValue ? pad.axes[0].getValue() : pad.axes[0].value;
+            const axisY = pad.axes[1].getValue ? pad.axes[1].getValue() : pad.axes[1].value;
+            if (Math.abs(axisX) > 0.15) vx = axisX * this.speed;
+            if (Math.abs(axisY) > 0.15) vy = axisY * this.speed;
+
+            // D-pad fallback
+            if (vx === 0 && vy === 0) {
+                if (pad.left)  vx = -this.speed;
+                if (pad.right) vx =  this.speed;
+                if (pad.up)    vy = -this.speed;
+                if (pad.down)  vy =  this.speed;
+            }
+
+            // Throw with button (X on PS4 = index 0, A on Xbox = index 0)
+            if (pad.buttons && pad.buttons[0] && pad.buttons[0].pressed) {
+                if (!this._padThrowLock) {
+                    this._padThrowLock = true;
+                    this.throwDollar();
+                }
+            } else {
+                this._padThrowLock = false;
+            }
+        }
+
+        // Keyboard WASD (additive — works alongside gamepad)
+        if (vx === 0 && vy === 0 && keys) {
+            if (keys.A.isDown) vx -= this.speed;
+            if (keys.D.isDown) vx += this.speed;
+            if (keys.W.isDown) vy -= this.speed;
+            if (keys.S.isDown) vy += this.speed;
+        }
 
         if (vx !== 0 && vy !== 0) {
             vx *= Math.SQRT1_2;

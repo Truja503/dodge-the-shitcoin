@@ -143,10 +143,7 @@ export default class OnlineScene extends Phaser.Scene {
         this.player2 = new Player2(this);
         this.player.canMove = true;
 
-        // Gamepad
-        this.input.gamepad.once('connected', (pad) => {
-            this.player.controller = true;
-        });
+        // Gamepad — auto-detected in Player.update()
 
         // Spawner
         this.spawner = new Spawner(this);
@@ -247,10 +244,7 @@ export default class OnlineScene extends Phaser.Scene {
         });
         this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
 
-        // Gamepad
-        this.input.gamepad.once('connected', (pad) => {
-            this._clientGamepad = true;
-        });
+        // Gamepad — auto-detected each frame
 
         // Self player (player2 position in host state) — uses physics for responsive feel
         this.selfSprite = this.physics.add.sprite(200, GAME_HEIGHT / 2, 'idle_1')
@@ -334,8 +328,8 @@ export default class OnlineScene extends Phaser.Scene {
         this.spawner.currentEnemySpeed = this._baseDifficultySpeed + (this.greedLevel * 80);
 
         // Update local player (host = player1, arrows)
-        const pad = this.input.gamepad.getPad(0);
-        this.player.update(this.cursors, pad);
+        const pad1 = this.input.gamepad.getPad(0);
+        this.player.update(this.cursors, pad1);
 
         // Throw dollar (host)
         if (Phaser.Input.Keyboard.JustDown(this.spaceKey)) this.player.throwDollar();
@@ -391,13 +385,30 @@ export default class OnlineScene extends Phaser.Scene {
         const pad = this.input.gamepad.getPad(0);
         let vx = 0, vy = 0;
 
-        if (this._clientGamepad && pad && pad.axes && pad.axes.length >= 2) {
-            const axisX = pad.axes[0].value;
-            const axisY = pad.axes[1].value;
-            if (Math.abs(axisX) > 0.1) vx = axisX * this._selfSpeed;
-            if (Math.abs(axisY) > 0.1) vy = axisY * this._selfSpeed;
-        } else {
-            // Accept both arrow keys and WASD
+        // Gamepad: auto-detect any connected pad
+        const hasPad = pad && pad.axes && pad.axes.length >= 2;
+        if (hasPad) {
+            const axisX = pad.axes[0].getValue ? pad.axes[0].getValue() : pad.axes[0].value;
+            const axisY = pad.axes[1].getValue ? pad.axes[1].getValue() : pad.axes[1].value;
+            if (Math.abs(axisX) > 0.15) vx = axisX * this._selfSpeed;
+            if (Math.abs(axisY) > 0.15) vy = axisY * this._selfSpeed;
+
+            // D-pad
+            if (vx === 0 && vy === 0) {
+                if (pad.left)  vx = -this._selfSpeed;
+                if (pad.right) vx =  this._selfSpeed;
+                if (pad.up)    vy = -this._selfSpeed;
+                if (pad.down)  vy =  this._selfSpeed;
+            }
+
+            // Throw with X/A button
+            if (pad.buttons && pad.buttons[0] && pad.buttons[0].pressed) {
+                this._wantsThrow = true;
+            }
+        }
+
+        // Keyboard fallback (arrows + WASD)
+        if (vx === 0 && vy === 0) {
             const left = this.cursors.left.isDown || this.wasdKeys.A.isDown;
             const right = this.cursors.right.isDown || this.wasdKeys.D.isDown;
             const up = this.cursors.up.isDown || this.wasdKeys.W.isDown;

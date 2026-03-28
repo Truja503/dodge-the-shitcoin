@@ -84,9 +84,7 @@ export default class SoloScene extends Phaser.Scene {
         }
 
         // ── Gamepad ──────────────────────────────────────────────
-        this.input.gamepad.once('connected', (pad) => {
-            this.player.controller = true;
-        });
+        // Gamepad — auto-detected in Player.update()
 
         // ── Spawner y dificultad ─────────────────────────────────
         this.spawner    = new Spawner(this);
@@ -447,65 +445,240 @@ export default class SoloScene extends Phaser.Scene {
         this.player.canMove = false;
         this.player.sprite.setVelocity(0, 0);
 
+        const W  = this.scale.width;
+        const H  = this.scale.height;
+        const cx = W / 2;
+        const cy = H / 2;
+        const isMob = W < 500;
+
         // Format time
         const totalSec = Math.floor(this.elapsedTime / 1000);
-        const hrs  = Math.floor(totalSec / 3600);
-        const mins = Math.floor((totalSec % 3600) / 60);
+        const mins = Math.floor(totalSec / 60);
         const secs = totalSec % 60;
-        let timeStr;
-        if (hrs > 0) {
-            timeStr = String(hrs).padStart(2, '0') + ':' +
-                      String(mins).padStart(2, '0') + ':' +
-                      String(secs).padStart(2, '0');
-        } else {
-            timeStr = String(mins).padStart(2, '0') + ':' +
-                      String(secs).padStart(2, '0');
-        }
+        const timeStr = String(mins).padStart(2,'0') + ':' + String(secs).padStart(2,'0');
 
-        // Dark overlay
-        const overlay = this.add.rectangle(
-            0, 0, this.scale.width, this.scale.height, 0x000000, 0.75
-        ).setOrigin(0, 0).setDepth(200);
+        // ── 1. Camera shake ──
+        this.cameras.main.shake(500, 0.022);
 
-        const cx = this.scale.width / 2;
-        const cy = this.scale.height / 2;
+        // ── 2. Dark overlay — fade in ──
+        const overlay = this.add.rectangle(cx, cy, W, H, 0x000000, 0)
+            .setDepth(200);
+        this.tweens.add({ targets: overlay, fillAlpha: 0.82, duration: 700, ease: 'Sine.easeIn' });
 
-        this.add.text(cx, cy - 100, "GAME OVER", {
-            fontFamily: "CinzelBold",
-            fontSize: "42px",
-            color: "#ff4444",
-            stroke: "#000",
-            strokeThickness: 6
-        }).setOrigin(0.5).setDepth(201);
+        // ── 3. Red vignette pulse ──
+        const redVig = this.add.rectangle(cx, cy, W, H, 0xff0000, 0).setDepth(199);
+        this.tweens.add({
+            targets: redVig, fillAlpha: 0.18,
+            duration: 200, yoyo: true, repeat: 2, ease: 'Sine.easeOut'
+        });
 
-        this.add.text(cx, cy - 30, `⏱ ${timeStr}`, {
-            fontFamily: "CinzelBold",
-            fontSize: "28px",
-            color: "#38bdf8",
-            stroke: "#000",
-            strokeThickness: 4
-        }).setOrigin(0.5).setDepth(201);
+        // ── 4. Player death effect — fall & fade ──
+        const sprite = this.player.sprite;
+        sprite.setDepth(205);
+        this.tweens.add({
+            targets: sprite,
+            y: sprite.y + 120,
+            angle: Phaser.Math.Between(-35, 35),
+            alpha: 0,
+            duration: 900,
+            ease: 'Quad.easeIn',
+            delay: 100
+        });
 
-        this.add.text(cx, cy + 20, `₿ ${this.bitcoinCount} collected`, {
-            fontFamily: "CinzelBold",
-            fontSize: "24px",
-            color: "#f5a623",
-            stroke: "#000",
-            strokeThickness: 4
-        }).setOrigin(0.5).setDepth(201);
+        // ── 5. Explosion burst on player position ──
+        this.time.delayedCall(80, () => {
+            // Main burst — red/orange shards
+            this.add.particles(sprite.x, sprite.y, "magicParticle", {
+                speed:    { min: 80, max: isMob ? 300 : 480 },
+                angle:    { min: 0, max: 360 },
+                scale:    { start: isMob ? 1.0 : 1.3, end: 0 },
+                alpha:    { start: 1, end: 0 },
+                lifespan: { min: 500, max: 900 },
+                gravityY: 250,
+                tint:     [0xff2222, 0xff6600, 0xffaa00, 0xffffff],
+                quantity: isMob ? 3 : 5,
+                frequency: 20,
+                duration:  800,
+                blendMode: 'ADD',
+            }).setDepth(210);
 
-        const playAgain = this.add.text(cx, cy + 90, "PLAY AGAIN", {
-            fontFamily: "CinzelBold",
-            fontSize: "28px",
-            color: "#4ade80",
-            stroke: "#000",
-            strokeThickness: 4
-        }).setOrigin(0.5).setDepth(201).setInteractive();
+            // Upward arc sparks
+            this.add.particles(sprite.x, sprite.y, "magicParticle", {
+                speed:    { min: 150, max: isMob ? 350 : 550 },
+                angle:    { min: -120, max: -60 },
+                scale:    { start: 0.8, end: 0 },
+                alpha:    { start: 0.9, end: 0 },
+                lifespan: { min: 700, max: 1300 },
+                gravityY: 350,
+                tint:     [0xff4444, 0xffd700],
+                quantity: isMob ? 2 : 4,
+                frequency: 25,
+                duration:  600,
+                blendMode: 'ADD',
+            }).setDepth(210);
+        });
 
-        playAgain.on("pointerover", () => playAgain.setColor("#86efac"));
-        playAgain.on("pointerout",  () => playAgain.setColor("#4ade80"));
-        playAgain.on("pointerdown", () => {
-            window.location.reload();
+        // ── 6. Screen flash ──
+        this.time.delayedCall(100, () => {
+            const flash = this.add.rectangle(cx, cy, W, H, 0xff2200, 0).setDepth(220);
+            this.tweens.add({
+                targets: flash, fillAlpha: 0.28,
+                duration: 60, yoyo: true,
+                onComplete: () => flash.destroy()
+            });
+        });
+
+        // ── 7. "GAME OVER" — dramatic entry ──
+        this.time.delayedCall(500, () => {
+            // Glow
+            const glow = this.add.text(cx, cy - (isMob ? 90 : 115), "GAME  OVER", {
+                fontFamily: "CinzelBold",
+                fontSize:   isMob ? "44px" : "72px",
+                color: "#ff2222",
+            }).setOrigin(0.5).setDepth(215).setAlpha(0).setScale(2.5);
+
+            this.tweens.add({
+                targets: glow, alpha: 0.2, scaleX: 1, scaleY: 1,
+                duration: 450, ease: 'Expo.easeOut'
+            });
+            this.tweens.add({
+                targets: glow,
+                alpha: { from: 0.12, to: 0.28 },
+                duration: 1200, yoyo: true, repeat: -1, ease: 'Sine.easeInOut', delay: 600
+            });
+
+            // Main title
+            const title = this.add.text(cx, cy - (isMob ? 90 : 115), "GAME  OVER", {
+                fontFamily: "CinzelBold",
+                fontSize:   isMob ? "44px" : "72px",
+                color: "#ff3333",
+                stroke: "#000000",
+                strokeThickness: isMob ? 5 : 8,
+                shadow: { offsetX: 0, offsetY: 0, color: "#ff0000", blur: 28, fill: true }
+            }).setOrigin(0.5).setDepth(216).setAlpha(0).setScale(0.1);
+
+            this.tweens.add({
+                targets: title, alpha: 1, scaleX: 1, scaleY: 1,
+                duration: 450, ease: 'Back.easeOut',
+                onComplete: () => {
+                    this.tweens.add({
+                        targets: title,
+                        scaleX: 1.05, scaleY: 1.05,
+                        duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+                    });
+                }
+            });
+        });
+
+        // ── 8. Stats — time & bitcoins ──
+        this.time.delayedCall(850, () => {
+            const yBase = cy - (isMob ? 20 : 30);
+            const fsz   = isMob ? "20px" : "26px";
+
+            const timeText = this.add.text(cx, yBase, `⏱  ${timeStr}`, {
+                fontFamily: "CinzelBold", fontSize: fsz,
+                color: "#38bdf8", stroke: "#000", strokeThickness: 3
+            }).setOrigin(0.5).setDepth(216).setAlpha(0).setY(yBase + 20);
+
+            this.tweens.add({ targets: timeText, alpha: 0.9, y: yBase, duration: 350, ease: 'Back.easeOut' });
+
+            const btcText = this.add.text(cx, yBase + (isMob ? 36 : 46), `₿  ${this.bitcoinCount}  collected`, {
+                fontFamily: "CinzelBold", fontSize: fsz,
+                color: "#f5a623", stroke: "#000", strokeThickness: 3
+            }).setOrigin(0.5).setDepth(216).setAlpha(0).setY(yBase + (isMob ? 56 : 66));
+
+            this.tweens.add({ targets: btcText, alpha: 0.9, y: yBase + (isMob ? 36 : 46), duration: 350, delay: 120, ease: 'Back.easeOut' });
+        });
+
+        // ── 9. Ambient embers rising ──
+        this.time.delayedCall(600, () => {
+            this.add.particles(0, H, "magicParticle", {
+                x:        { min: 0, max: W },
+                speed:    { min: 25, max: 90 },
+                angle:    { min: -100, max: -80 },
+                scale:    { start: 0.5, end: 0 },
+                alpha:    { start: 0.5, end: 0 },
+                lifespan: { min: 1200, max: 2800 },
+                tint:     [0xff4400, 0xff8800, 0xffcc00],
+                quantity: isMob ? 1 : 2,
+                frequency: 60,
+                blendMode: 'ADD',
+            }).setDepth(202);
+        });
+
+        // ── 10. PLAY AGAIN button ──
+        this.time.delayedCall(1300, () => {
+            const btnY  = cy + (isMob ? 70 : 95);
+            const btnW  = isMob ? 220 : 270;
+            const btnH  = isMob ? 48 : 54;
+            const cSz   = 8;
+
+            // Corner-styled button background
+            const bg = this.add.graphics().setDepth(217).setAlpha(0);
+            bg.fillStyle(0x22c55e, 0.1);
+            bg.fillRect(cx - btnW/2, btnY - btnH/2, btnW, btnH);
+            bg.lineStyle(1, 0x22c55e, 0.35);
+            bg.strokeRect(cx - btnW/2, btnY - btnH/2, btnW, btnH);
+
+            // Corners
+            const corners = this.add.graphics().setDepth(217).setAlpha(0);
+            corners.lineStyle(2, 0x22c55e, 0.9);
+            const x1=cx-btnW/2, y1=btnY-btnH/2, x2=cx+btnW/2, y2=btnY+btnH/2;
+            [[x1,y1,1,1],[x2,y1,-1,1],[x1,y2,1,-1],[x2,y2,-1,-1]].forEach(([ax,ay,dx,dy]) => {
+                corners.beginPath();
+                corners.moveTo(ax, ay+dy*cSz); corners.lineTo(ax,ay); corners.lineTo(ax+dx*cSz,ay);
+                corners.strokePath();
+            });
+
+            const hoverBg = this.add.graphics().setDepth(217).setAlpha(0);
+            hoverBg.fillStyle(0x22c55e, 0.2);
+            hoverBg.fillRect(cx-btnW/2, btnY-btnH/2, btnW, btnH);
+
+            const label = this.add.text(cx, btnY, "▸  PLAY AGAIN", {
+                fontFamily: "CinzelBold",
+                fontSize: isMob ? "18px" : "22px",
+                color: "#4ade80",
+                stroke: "#000", strokeThickness: 3
+            }).setOrigin(0.5).setDepth(218).setAlpha(0);
+
+            // Animate in
+            [bg, corners, label].forEach(o => {
+                o.x -= 12;
+                this.tweens.add({ targets: o, x: o.x+12, alpha: 1, duration: 400, ease: 'Back.easeOut' });
+            });
+
+            // Hit zone — large for mobile
+            const hit = this.add.rectangle(cx, btnY, btnW + 20, btnH + 20, 0x000000, 0)
+                .setInteractive({ useHandCursor: true }).setDepth(219);
+
+            hit.on('pointerover', () => {
+                hoverBg.setAlpha(1); label.setColor("#86efac");
+                corners.setAlpha(1);
+                this.tweens.add({ targets: label, scaleX: 1.05, scaleY: 1.05, duration: 100 });
+            });
+            hit.on('pointerout', () => {
+                hoverBg.setAlpha(0); label.setColor("#4ade80");
+                this.tweens.add({ targets: label, scaleX: 1, scaleY: 1, duration: 100 });
+            });
+            hit.on('pointerdown', () => {
+                this.cameras.main.fade(300, 0, 0, 0);
+                this.time.delayedCall(300, () => window.location.reload());
+            });
+
+            // Menu link
+            const menuLink = this.add.text(cx, btnY + (isMob ? 52 : 60), "← Menu", {
+                fontFamily: "Cinzel",
+                fontSize: isMob ? "13px" : "15px",
+                color: "#6b5a30",
+            }).setOrigin(0.5).setDepth(218).setAlpha(0).setInteractive({ useHandCursor: true });
+
+            this.tweens.add({ targets: menuLink, alpha: 0.6, duration: 400, delay: 200 });
+            menuLink.on('pointerover', () => menuLink.setColor("#c8a060"));
+            menuLink.on('pointerout',  () => menuLink.setColor("#6b5a30"));
+            menuLink.on('pointerdown', () => {
+                this.cameras.main.fade(300, 0, 0, 0);
+                this.time.delayedCall(300, () => this.scene.start("MenuScene"));
+            });
         });
     }
 }
