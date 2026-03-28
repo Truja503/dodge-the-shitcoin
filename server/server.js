@@ -182,8 +182,12 @@ app.get('/api/users/:username/stats', (req, res) => {
 
 // ── Tournaments ──────────────────────────────────────────────────
 app.post('/api/tournaments', (req, res) => {
-  const { name, username } = req.body;
+  const { name, username, format } = req.body;
   if (!name || !username) return res.status(400).json({ error: 'Name and username required' });
+
+  // Validate format: must be 2, 4, 8, or 16
+  const validFormats = [2, 4, 8, 16];
+  const bracketFormat = validFormats.includes(parseInt(format)) ? parseInt(format) : 16;
 
   let user = get('SELECT * FROM users WHERE username = ?', [username.trim()]);
   if (!user) {
@@ -194,8 +198,8 @@ app.post('/api/tournaments', (req, res) => {
 
   const key = genKey(6);
   const adminKey = genKey(10);
-  const r = run('INSERT INTO tournaments (name, key, admin_key, created_by) VALUES (?, ?, ?, ?)',
-    [name.trim(), key, adminKey, user.id]);
+  const r = run('INSERT INTO tournaments (name, key, admin_key, format, created_by) VALUES (?, ?, ?, ?, ?)',
+    [name.trim(), key, adminKey, String(bracketFormat), user.id]);
 
   run('INSERT INTO tournament_players (tournament_id, user_id, seed) VALUES (?, ?, 0)',
     [r.lastInsertRowid, user.id]);

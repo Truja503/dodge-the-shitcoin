@@ -169,6 +169,27 @@ h1 {
   text-decoration: none;
 }
 .back-link a:hover { color: var(--text); }
+
+.format-btn {
+  flex: 1;
+  padding: 0.5rem 0.3rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text-dim);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+.format-btn:hover { border-color: var(--gold); color: var(--text); }
+.format-btn.active {
+  background: rgba(245,166,35,0.15);
+  border-color: var(--gold);
+  color: var(--gold);
+}
 </style>
 </head>
 <body>
@@ -205,6 +226,15 @@ h1 {
       <label>Your Username (Admin)</label>
       <input type="text" id="create-username" placeholder="e.g. Satoshi" maxlength="20">
     </div>
+    <div class="field">
+      <label>Bracket Size</label>
+      <div style="display:flex;gap:8px;margin-top:4px;">
+        <button class="format-btn active" data-format="2" onclick="selectFormat(2)">Final (2)</button>
+        <button class="format-btn" data-format="4" onclick="selectFormat(4)">Semis (4)</button>
+        <button class="format-btn" data-format="8" onclick="selectFormat(8)">Quarters (8)</button>
+        <button class="format-btn" data-format="16" onclick="selectFormat(16)">R16 (16)</button>
+      </div>
+    </div>
     <button class="btn btn-gold" onclick="createTournament()">Create Tournament</button>
     <div class="message" id="create-msg"></div>
   </div>
@@ -214,6 +244,14 @@ h1 {
 
 <script>
 const API = 'http://localhost:3001/api';
+let selectedFormat = 2;
+
+function selectFormat(fmt) {
+  selectedFormat = fmt;
+  document.querySelectorAll('.format-btn').forEach(b => {
+    b.classList.toggle('active', parseInt(b.dataset.format) === fmt);
+  });
+}
 
 function switchTab(tab) {
   document.querySelectorAll('.tab').forEach((t, i) => {
@@ -257,7 +295,7 @@ async function createTournament() {
     const res = await fetch(`${API}/tournaments`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, username })
+      body: JSON.stringify({ name, username, format: selectedFormat })
     });
     const data = await res.json();
     if (!res.ok) return showMsg('create-msg', data.error || 'Failed', 'error');
