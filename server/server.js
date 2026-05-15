@@ -6,6 +6,8 @@ const path = require('path');
 const { getDb, run, get, all, save } = require('./db');
 const { setupWebSocket, broadcastBracketUpdate } = require('./ws');
 const { setupOnlineWS } = require('./online');
+const QRCode = require('qrcode');
+const { createInvoice, getInvoiceStatus } = require('./blink');
 
 const app = express();
 const server = http.createServer(app);
@@ -25,15 +27,39 @@ app.get('/api/health', (req, res) => {
 });
 
 const dbReady = getDb();
+let paymentTablesReady = false;
+
 app.use(async (req, res, next) => {
   try {
     await dbReady;
+
+    if (!paymentTablesReady) {
+      ensurePaymentTables();
+      paymentTablesReady = true;
+    }
+
     next();
   } catch (err) {
     next(err);
   }
 });
-
+function ensurePaymentTables() {
+  run(`
+    CREATE TABLE IF NOT EXISTS tournament_payments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tournament_key TEXT NOT NULL,
+      player_name TEXT NOT NULL,
+      amount_sats INTEGER NOT NULL,
+      payment_hash TEXT UNIQUE NOT NULL,
+      payment_request TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'PENDING',
+      external_id TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      paid_at DATETIME,
+      joined_at DATETIME
+    )
+  `);
+}
 // ── Helpers ──────────────────────────────────────────────────────
 function genKey(len = 6) {
   return crypto.randomBytes(len).toString('hex').toUpperCase().slice(0, len);
@@ -234,8 +260,12 @@ app.get('/api/tournaments/:key', (req, res) => {
 });
 
 app.post('/api/tournaments/:key/join', (req, res) => {
-  const { username } = req.body;
+  const { username, paymentHash } = req.body;
   if (!username) return res.status(400).json({ error: 'Username required' });
+
+  if (!paymentHash) {
+    return res.status(400).json({ error: 'Payment required' });
+  }
 
   const t = get('SELECT * FROM tournaments WHERE key = ?', [req.params.key]);
   if (!t) return res.status(404).json({ error: 'Tournament not found' });
@@ -256,8 +286,28 @@ app.post('/api/tournaments/:key/join', (req, res) => {
   const exists = get('SELECT 1 as x FROM tournament_players WHERE tournament_id = ? AND user_id = ?', [t.id, user.id]);
   if (exists) return res.status(400).json({ error: 'Already joined' });
 
+  const paidEntry = get(`
+    SELECT *
+    FROM tournament_payments
+    WHERE tournament_key = ?
+      AND player_name = ?
+      AND payment_hash = ?
+      AND status = 'PAID'
+      AND joined_at IS NULL
+  `, [req.params.key, username.trim(), paymentHash]);
+
+  if (!paidEntry) {
+    return res.status(402).json({ error: 'Entry payment not confirmed' });
+  }
+  
   run('INSERT INTO tournament_players (tournament_id, user_id, seed) VALUES (?, ?, ?)', [t.id, user.id, count]);
 
+    run(`
+    UPDATE tournament_payments
+    SET joined_at = CURRENT_TIMESTAMP
+    WHERE payment_hash = ?
+  `, [paymentHash]);
+  
   broadcastBracketUpdate(req.params.key, getTournamentFull(req.params.key));
   res.json({ success: true, username: user.username });
 });
@@ -380,7 +430,109 @@ app.get('/api/tournaments/:key/stats', (req, res) => {
   `, [t.id]);
   res.json(stats);
 });
+app.post('/api/payments/tournament-entry', async (req, res) => {
+  try {
+    const { tournamentKey, playerName, amountSats } = req.body;
 
+    if (!tournamentKey || !playerName) {
+      return res.status(400).json({ error: 'tournamentKey and playerName required' });
+    }
+
+    const t = get('SELECT * FROM tournaments WHERE key = ?', [tournamentKey]);
+    if (!t) return res.status(404).json({ error: 'Tournament not found' });
+    if (t.status !== 'pending') return res.status(400).json({ error: 'Tournament already started' });
+
+    const exists = get(`
+      SELECT 1 as x
+      FROM tournament_payments
+      WHERE tournament_key = ? AND player_name = ? AND status = 'PAID'
+    `, [tournamentKey, playerName.trim()]);
+
+    if (exists) {
+      return res.status(409).json({ error: 'This player already has a paid entry' });
+    }
+
+    const sats = parseInt(amountSats || process.env.TOURNAMENT_ENTRY_SATS || '100');
+
+    if (!Number.isInteger(sats) || sats < 1 || sats > 100000) {
+      return res.status(400).json({ error: 'Invalid amountSats' });
+    }
+
+    const externalId = `dts-entry:${tournamentKey}:${playerName}:${crypto.randomUUID()}`;
+
+    const invoice = await createInvoice({
+      walletId: process.env.BLINK_WALLET_ID,
+      amountSats: sats,
+      memo: `Dodge the Shitcoin tournament entry - ${playerName}`,
+      externalId,
+    });
+
+    run(`
+      INSERT INTO tournament_payments
+      (tournament_key, player_name, amount_sats, payment_hash, payment_request, status, external_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `, [
+      tournamentKey,
+      playerName.trim(),
+      sats,
+      invoice.paymentHash,
+      invoice.paymentRequest,
+      invoice.paymentStatus || 'PENDING',
+      externalId,
+    ]);
+
+    const qrDataUrl = await QRCode.toDataURL(`lightning:${invoice.paymentRequest}`);
+
+    res.json({
+      ok: true,
+      amountSats: sats,
+      paymentHash: invoice.paymentHash,
+      paymentRequest: invoice.paymentRequest,
+      qrDataUrl,
+      status: invoice.paymentStatus || 'PENDING',
+    });
+  } catch (err) {
+    console.error('Create tournament entry invoice error:', err);
+    res.status(500).json({ error: 'Could not create payment invoice' });
+  }
+});
+
+app.get('/api/payments/status/:paymentHash', async (req, res) => {
+  try {
+    const { paymentHash } = req.params;
+
+    const local = get('SELECT * FROM tournament_payments WHERE payment_hash = ?', [paymentHash]);
+    if (!local) return res.status(404).json({ error: 'Payment not found' });
+
+    const remote = await getInvoiceStatus(paymentHash);
+
+    if (remote.status === 'PAID' && local.status !== 'PAID') {
+      run(`
+        UPDATE tournament_payments
+        SET status = 'PAID', paid_at = CURRENT_TIMESTAMP
+        WHERE payment_hash = ?
+      `, [paymentHash]);
+    }
+
+    if (remote.status === 'EXPIRED' && local.status !== 'PAID') {
+      run(`
+        UPDATE tournament_payments
+        SET status = 'EXPIRED'
+        WHERE payment_hash = ?
+      `, [paymentHash]);
+    }
+
+    res.json({
+      ok: true,
+      paymentHash,
+      status: remote.status,
+      paid: remote.status === 'PAID',
+    });
+  } catch (err) {
+    console.error('Check payment status error:', err);
+    res.status(500).json({ error: 'Could not check payment status' });
+  }
+});
 // ── Online Match Result ──────────────────────────────────────────
 app.post('/api/online-match', (req, res) => {
   const { player1, player2, player1Score, player2Score } = req.body;
@@ -408,6 +560,8 @@ app.post('/api/online-match', (req, res) => {
 
   res.json({ success: true, winner: winnerId === u1.id ? player1 : winnerId === u2.id ? player2 : 'draw' });
 });
+
+
 
 // ── Start ────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3001;

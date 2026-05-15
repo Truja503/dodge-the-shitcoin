@@ -15,7 +15,7 @@ export default class Enemy {
 
         // Scale: pasado explícitamente (split) o aleatorio (spawn)
         // Tamaño más pequeño: 0.06 a 0.12
-        this.enemyScale = scale || Phaser.Math.FloatBetween(0.06, 0.12);
+        this.enemyScale = scale || Phaser.Math.FloatBetween(0.03, 0.06);
         this.sprite.setScale(this.enemyScale);
 
         this.rotationSpeed = Phaser.Math.FloatBetween(0.01, 0.04);

@@ -1,480 +1,831 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>Tournament — Dodge the Shitcoin</title>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&display=swap" rel="stylesheet">
-<style>
-@font-face { font-family:"Cinzel";    src:url("../assets/fonts/cinzel/Cinzel-Regular.ttf") format("truetype"); }
-@font-face { font-family:"CinzelBold";src:url("../assets/fonts/cinzel/Cinzel-Bold.ttf")    format("truetype"); }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>Tournament — Dodge the Shitcoin</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&display=swap" rel="stylesheet">
+  <style>
+    @font-face {
+      font-family: "Cinzel";
+      src: url("../assets/fonts/cinzel/Cinzel-Regular.ttf") format("truetype");
+    }
 
-:root {
-  --bg:      #060810;
-  --card:    rgba(8,11,20,0.88);
-  --border:  rgba(245,166,35,0.18);
-  --borderhi:rgba(245,166,35,0.5);
-  --gold:    #ffd700;
-  --goldmid: #f5a623;
-  --golddim: #c8a060;
-  --golddark:#6b5a30;
-  --text:    #d4b870;
-  --textdim: #6b5030;
-  --textbri: #ffeaa0;
-  --err:     #ef6644;
-  --ok:      #c8a060;
-}
+    @font-face {
+      font-family: "CinzelBold";
+      src: url("../assets/fonts/cinzel/Cinzel-Bold.ttf") format("truetype");
+    }
 
-*{margin:0;padding:0;box-sizing:border-box;}
+    :root {
+      --bg: #060810;
+      --card: rgba(8, 11, 20, 0.88);
+      --border: rgba(245, 166, 35, 0.18);
+      --borderhi: rgba(245, 166, 35, 0.5);
+      --gold: #ffd700;
+      --goldmid: #f5a623;
+      --golddim: #c8a060;
+      --golddark: #6b5a30;
+      --text: #d4b870;
+      --textdim: #6b5030;
+      --textbri: #ffeaa0;
+      --err: #ef6644;
+      --ok: #c8a060;
+    }
 
-html,body{
-  min-height:100%;
-  background:var(--bg);
-  color:var(--text);
-  font-family:'Cinzel',serif;
-  overflow-x:hidden;
-}
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
 
-body{
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  min-height:100dvh;
-  padding:1rem;
-}
+    html,
+    body {
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Cinzel', serif;
+      overflow-x: hidden;
+    }
 
-/* CANVAS */
-#particle-canvas{
-  position:fixed;inset:0;
-  pointer-events:none;z-index:0;
-  width:100%;height:100%;
-}
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100dvh;
+      padding: 1rem;
+    }
 
-/* SCANLINES */
-body::after{
-  content:'';position:fixed;inset:0;
-  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.07) 2px,rgba(0,0,0,0.07) 4px);
-  pointer-events:none;z-index:999;
-}
+    /* CANVAS */
+    #particle-canvas {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      width: 100%;
+      height: 100%;
+    }
 
-/* VIGNETTE */
-body::before{
-  content:'';position:fixed;inset:0;
-  background:radial-gradient(ellipse at center,transparent 35%,rgba(0,0,0,0.88) 100%);
-  pointer-events:none;z-index:1;
-}
+    /* SCANLINES */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 0, 0, 0.07) 2px, rgba(0, 0, 0, 0.07) 4px);
+      pointer-events: none;
+      z-index: 999;
+    }
 
-/* CONTAINER */
-.container{
-  position:relative;z-index:10;
-  width:100%;max-width:460px;
-  padding:0.5rem;
-  animation:fadeInUp 0.7s cubic-bezier(0.23,1,0.32,1) both;
-}
-@keyframes fadeInUp{
-  from{opacity:0;transform:translateY(28px);}
-  to{opacity:1;transform:translateY(0);}
-}
+    /* VIGNETTE */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(ellipse at center, transparent 35%, rgba(0, 0, 0, 0.88) 100%);
+      pointer-events: none;
+      z-index: 1;
+    }
 
-/* TITLE */
-.title-wrap{text-align:center;margin-bottom:1.5rem;}
-h1{
-  font-family:'CinzelBold',serif;
-  font-size:clamp(1.4rem,6vw,2rem);
-  letter-spacing:3px;
-  background:linear-gradient(135deg,var(--goldmid),var(--gold),var(--goldmid));
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
-  filter:drop-shadow(0 0 18px rgba(245,166,35,0.4));
-  animation:titlePulse 3s ease-in-out infinite;
-}
-@keyframes titlePulse{
-  0%,100%{filter:drop-shadow(0 0 18px rgba(245,166,35,0.4));}
-  50%{filter:drop-shadow(0 0 32px rgba(245,166,35,0.75));}
-}
-.title-sub{
-  font-size:clamp(0.48rem,2vw,0.6rem);
-  letter-spacing:4px;color:var(--golddark);
-  text-transform:uppercase;margin-top:0.4rem;opacity:0.7;
-}
-.title-line{
-  width:100%;height:1px;
-  background:linear-gradient(90deg,transparent,var(--goldmid),transparent);
-  margin-top:0.8rem;opacity:0.3;
-  animation:linePulse 2.5s ease-in-out infinite;
-}
-@keyframes linePulse{0%,100%{opacity:0.2;}50%{opacity:0.5;}}
+    /* CONTAINER */
+    .container {
+      position: relative;
+      z-index: 10;
+      width: 100%;
+      max-width: 460px;
+      padding: 0.5rem;
+      animation: fadeInUp 0.7s cubic-bezier(0.23, 1, 0.32, 1) both;
+    }
 
-/* CARD */
-.card{
-  background:var(--card);
-  border:1px solid var(--border);
-  border-radius:4px;
-  padding:clamp(1.2rem,4vw,1.8rem);
-  position:relative;overflow:hidden;
-  backdrop-filter:blur(12px);
-  box-shadow:0 0 40px rgba(245,166,35,0.04),inset 0 1px 0 rgba(255,255,255,0.04);
-}
-.card::before,.card::after{content:'';position:absolute;width:16px;height:16px;}
-.card::before{top:0;left:0;border-top:2px solid var(--goldmid);border-left:2px solid var(--goldmid);}
-.card::after{bottom:0;right:0;border-bottom:2px solid var(--goldmid);border-right:2px solid var(--goldmid);}
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(28px);
+      }
 
-/* TABS */
-.tabs{
-  display:flex;margin-bottom:1.2rem;
-  border-radius:3px;overflow:hidden;
-  border:1px solid var(--border);
-}
-.tab{
-  flex:1;padding:0.7rem 0.5rem;
-  text-align:center;cursor:pointer;
-  font-family:'CinzelBold',serif;
-  font-size:clamp(0.62rem,2.5vw,0.72rem);
-  letter-spacing:2px;text-transform:uppercase;
-  color:var(--textdim);
-  background:rgba(0,0,0,0.4);
-  border:none;transition:all 0.25s;position:relative;
-}
-.tab::after{
-  content:'';position:absolute;
-  bottom:0;left:0;width:100%;height:2px;
-  background:var(--goldmid);transform:scaleX(0);transition:transform 0.25s;
-}
-.tab.active{color:var(--gold);background:rgba(245,166,35,0.07);}
-.tab.active::after{transform:scaleX(1);}
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
 
-/* FIELDS */
-.field{margin-bottom:1.1rem;}
-.field label{
-  display:flex;align-items:center;gap:0.35rem;
-  font-size:clamp(0.55rem,2vw,0.62rem);
-  text-transform:uppercase;letter-spacing:2px;
-  color:var(--golddim);opacity:0.7;margin-bottom:0.4rem;
-}
-.field label::before{content:'▸';font-size:0.65rem;}
-.field input{
-  width:100%;
-  padding:clamp(0.65rem,2.5vw,0.75rem) clamp(0.7rem,3vw,1rem);
-  font-family:'Cinzel',serif;
-  font-size:clamp(0.8rem,3.5vw,0.9rem);
-  letter-spacing:1px;
-  background:rgba(0,0,0,0.45);
-  border:1px solid var(--border);border-radius:3px;
-  color:var(--textbri);outline:none;
-  transition:all 0.25s;
-  /* prevent iOS zoom */
-  font-size:max(16px, clamp(0.8rem,3.5vw,0.9rem));
-}
-.field input::placeholder{color:var(--textdim);font-size:0.78rem;}
-.field input:focus{
-  border-color:var(--goldmid);
-  background:rgba(245,166,35,0.04);
-  box-shadow:0 0 14px rgba(245,166,35,0.1),inset 0 0 10px rgba(245,166,35,0.03);
-}
+    /* TITLE */
+    .title-wrap {
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
 
-/* BRACKET BUTTONS */
-.format-row{display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;}
-.format-btn{
-  flex:1;min-width:60px;
-  padding:0.45rem 0.3rem;
-  font-family:'Cinzel',serif;
-  font-size:clamp(0.55rem,2vw,0.65rem);
-  letter-spacing:1px;text-align:center;
-  background:rgba(0,0,0,0.4);
-  border:1px solid var(--border);border-radius:3px;
-  color:var(--textdim);cursor:pointer;transition:all 0.2s;
-}
-.format-btn:hover{border-color:var(--goldmid);color:var(--golddim);}
-.format-btn.active{
-  background:rgba(245,166,35,0.12);
-  border-color:var(--goldmid);color:var(--gold);
-}
+    h1 {
+      font-family: 'CinzelBold', serif;
+      font-size: clamp(1.4rem, 6vw, 2rem);
+      letter-spacing: 3px;
+      background: linear-gradient(135deg, var(--goldmid), var(--gold), var(--goldmid));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 0 18px rgba(245, 166, 35, 0.4));
+      animation: titlePulse 3s ease-in-out infinite;
+    }
 
-/* BUTTON */
-.btn{
-  display:block;width:100%;
-  padding:clamp(0.75rem,3vw,0.9rem);
-  font-family:'CinzelBold',serif;
-  font-size:clamp(0.8rem,3.5vw,0.92rem);
-  letter-spacing:3px;text-transform:uppercase;
-  border:none;border-radius:3px;cursor:pointer;
-  transition:all 0.25s;margin-top:0.5rem;
-  position:relative;overflow:hidden;
-  background:linear-gradient(135deg,var(--goldmid),#b8860b);
-  color:#060810;
-  box-shadow:0 0 20px rgba(245,166,35,0.15);
-  /* touch */
-  -webkit-tap-highlight-color:transparent;
-  touch-action:manipulation;
-}
-.btn::before{
-  content:'';position:absolute;
-  top:-100%;left:-100%;width:300%;height:300%;
-  background:linear-gradient(135deg,transparent 40%,rgba(255,255,255,0.12) 50%,transparent 60%);
-  transition:all 0.5s;
-}
-.btn:hover::before{top:100%;left:100%;}
-.btn:hover{box-shadow:0 0 35px rgba(245,166,35,0.45);transform:translateY(-2px);}
-.btn:active{transform:translateY(0);}
+    @keyframes titlePulse {
 
-/* MESSAGES */
-.message{
-  margin-top:0.9rem;padding:0.75rem 0.9rem;
-  border-radius:3px;font-size:clamp(0.65rem,2.5vw,0.72rem);
-  letter-spacing:0.5px;line-height:1.6;display:none;
-}
-.message.success{
-  display:block;
-  color:var(--ok);background:rgba(245,166,35,0.06);
-  border:1px solid rgba(245,166,35,0.2);
-}
-.message.error{
-  display:block;
-  color:var(--err);background:rgba(239,102,68,0.08);
-  border:1px solid rgba(239,102,68,0.25);
-}
-.message a{color:var(--gold);text-decoration:underline;}
-.message strong{color:var(--gold);}
+      0%,
+      100% {
+        filter: drop-shadow(0 0 18px rgba(245, 166, 35, 0.4));
+      }
 
-/* BACK */
-.back-link{
-  text-align:center;margin-top:1.2rem;
-  font-size:clamp(0.6rem,2.5vw,0.7rem);letter-spacing:2px;
-}
-.back-link a{color:var(--textdim);text-decoration:none;text-transform:uppercase;transition:color 0.2s;}
-.back-link a:hover{color:var(--golddim);}
+      50% {
+        filter: drop-shadow(0 0 32px rgba(245, 166, 35, 0.75));
+      }
+    }
 
-/* MOBILE */
-@media(max-width:420px){
-  body{padding:0.5rem;align-items:flex-start;padding-top:env(safe-area-inset-top,0.5rem);}
-  .container{padding:0.4rem;}
-  h1{letter-spacing:2px;}
-  .card{padding:1.1rem 1rem;}
-  .card::before,.card::after{width:12px;height:12px;}
-  .tab{letter-spacing:1px;}
-  .format-row{gap:4px;}
-  .format-btn{min-width:50px;padding:0.4rem 0.2rem;}
-  .message{font-size:0.65rem;}
-}
-</style>
+    .title-sub {
+      font-size: clamp(0.48rem, 2vw, 0.6rem);
+      letter-spacing: 4px;
+      color: var(--golddark);
+      text-transform: uppercase;
+      margin-top: 0.4rem;
+      opacity: 0.7;
+    }
+
+    .title-line {
+      width: 100%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--goldmid), transparent);
+      margin-top: 0.8rem;
+      opacity: 0.3;
+      animation: linePulse 2.5s ease-in-out infinite;
+    }
+
+    @keyframes linePulse {
+
+      0%,
+      100% {
+        opacity: 0.2;
+      }
+
+      50% {
+        opacity: 0.5;
+      }
+    }
+
+    /* CARD */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: clamp(1.2rem, 4vw, 1.8rem);
+      position: relative;
+      overflow: hidden;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 0 40px rgba(245, 166, 35, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    }
+
+    .card::before,
+    .card::after {
+      content: '';
+      position: absolute;
+      width: 16px;
+      height: 16px;
+    }
+
+    .card::before {
+      top: 0;
+      left: 0;
+      border-top: 2px solid var(--goldmid);
+      border-left: 2px solid var(--goldmid);
+    }
+
+    .card::after {
+      bottom: 0;
+      right: 0;
+      border-bottom: 2px solid var(--goldmid);
+      border-right: 2px solid var(--goldmid);
+    }
+
+    /* TABS */
+    .tabs {
+      display: flex;
+      margin-bottom: 1.2rem;
+      border-radius: 3px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    .tab {
+      flex: 1;
+      padding: 0.7rem 0.5rem;
+      text-align: center;
+      cursor: pointer;
+      font-family: 'CinzelBold', serif;
+      font-size: clamp(0.62rem, 2.5vw, 0.72rem);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--textdim);
+      background: rgba(0, 0, 0, 0.4);
+      border: none;
+      transition: all 0.25s;
+      position: relative;
+    }
+
+    .tab::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background: var(--goldmid);
+      transform: scaleX(0);
+      transition: transform 0.25s;
+    }
+
+    .tab.active {
+      color: var(--gold);
+      background: rgba(245, 166, 35, 0.07);
+    }
+
+    .tab.active::after {
+      transform: scaleX(1);
+    }
+
+    /* FIELDS */
+    .field {
+      margin-bottom: 1.1rem;
+    }
+
+    .field label {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: clamp(0.55rem, 2vw, 0.62rem);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--golddim);
+      opacity: 0.7;
+      margin-bottom: 0.4rem;
+    }
+
+    .field label::before {
+      content: '▸';
+      font-size: 0.65rem;
+    }
+
+    .field input {
+      width: 100%;
+      padding: clamp(0.65rem, 2.5vw, 0.75rem) clamp(0.7rem, 3vw, 1rem);
+      font-family: 'Cinzel', serif;
+      font-size: clamp(0.8rem, 3.5vw, 0.9rem);
+      letter-spacing: 1px;
+      background: rgba(0, 0, 0, 0.45);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      color: var(--textbri);
+      outline: none;
+      transition: all 0.25s;
+      /* prevent iOS zoom */
+      font-size: max(16px, clamp(0.8rem, 3.5vw, 0.9rem));
+    }
+
+    .field input::placeholder {
+      color: var(--textdim);
+      font-size: 0.78rem;
+    }
+
+    .field input:focus {
+      border-color: var(--goldmid);
+      background: rgba(245, 166, 35, 0.04);
+      box-shadow: 0 0 14px rgba(245, 166, 35, 0.1), inset 0 0 10px rgba(245, 166, 35, 0.03);
+    }
+
+    /* BRACKET BUTTONS */
+    .format-row {
+      display: flex;
+      gap: 6px;
+      margin-top: 4px;
+      flex-wrap: wrap;
+    }
+
+    .format-btn {
+      flex: 1;
+      min-width: 60px;
+      padding: 0.45rem 0.3rem;
+      font-family: 'Cinzel', serif;
+      font-size: clamp(0.55rem, 2vw, 0.65rem);
+      letter-spacing: 1px;
+      text-align: center;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      color: var(--textdim);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .format-btn:hover {
+      border-color: var(--goldmid);
+      color: var(--golddim);
+    }
+
+    .format-btn.active {
+      background: rgba(245, 166, 35, 0.12);
+      border-color: var(--goldmid);
+      color: var(--gold);
+    }
+
+    /* BUTTON */
+    .btn {
+      display: block;
+      width: 100%;
+      padding: clamp(0.75rem, 3vw, 0.9rem);
+      font-family: 'CinzelBold', serif;
+      font-size: clamp(0.8rem, 3.5vw, 0.92rem);
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: all 0.25s;
+      margin-top: 0.5rem;
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(135deg, var(--goldmid), #b8860b);
+      color: #060810;
+      box-shadow: 0 0 20px rgba(245, 166, 35, 0.15);
+      /* touch */
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    .btn::before {
+      content: '';
+      position: absolute;
+      top: -100%;
+      left: -100%;
+      width: 300%;
+      height: 300%;
+      background: linear-gradient(135deg, transparent 40%, rgba(255, 255, 255, 0.12) 50%, transparent 60%);
+      transition: all 0.5s;
+    }
+
+    .btn:hover::before {
+      top: 100%;
+      left: 100%;
+    }
+
+    .btn:hover {
+      box-shadow: 0 0 35px rgba(245, 166, 35, 0.45);
+      transform: translateY(-2px);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    /* MESSAGES */
+    .message {
+      margin-top: 0.9rem;
+      padding: 0.75rem 0.9rem;
+      border-radius: 3px;
+      font-size: clamp(0.65rem, 2.5vw, 0.72rem);
+      letter-spacing: 0.5px;
+      line-height: 1.6;
+      display: none;
+    }
+
+    .message.success {
+      display: block;
+      color: var(--ok);
+      background: rgba(245, 166, 35, 0.06);
+      border: 1px solid rgba(245, 166, 35, 0.2);
+    }
+
+    .message.error {
+      display: block;
+      color: var(--err);
+      background: rgba(239, 102, 68, 0.08);
+      border: 1px solid rgba(239, 102, 68, 0.25);
+    }
+
+    .message a {
+      color: var(--gold);
+      text-decoration: underline;
+    }
+
+    .message strong {
+      color: var(--gold);
+    }
+
+    /* BACK */
+    .back-link {
+      text-align: center;
+      margin-top: 1.2rem;
+      font-size: clamp(0.6rem, 2.5vw, 0.7rem);
+      letter-spacing: 2px;
+    }
+
+    .back-link a {
+      color: var(--textdim);
+      text-decoration: none;
+      text-transform: uppercase;
+      transition: color 0.2s;
+    }
+
+    .back-link a:hover {
+      color: var(--golddim);
+    }
+
+    /* MOBILE */
+    @media(max-width:420px) {
+      body {
+        padding: 0.5rem;
+        align-items: flex-start;
+        padding-top: env(safe-area-inset-top, 0.5rem);
+      }
+
+      .container {
+        padding: 0.4rem;
+      }
+
+      h1 {
+        letter-spacing: 2px;
+      }
+
+      .card {
+        padding: 1.1rem 1rem;
+      }
+
+      .card::before,
+      .card::after {
+        width: 12px;
+        height: 12px;
+      }
+
+      .tab {
+        letter-spacing: 1px;
+      }
+
+      .format-row {
+        gap: 4px;
+      }
+
+      .format-btn {
+        min-width: 50px;
+        padding: 0.4rem 0.2rem;
+      }
+
+      .message {
+        font-size: 0.65rem;
+      }
+    }
+  </style>
 </head>
+
 <body>
 
-<canvas id="particle-canvas"></canvas>
+  <canvas id="particle-canvas"></canvas>
 
-<div class="container">
-  <div class="title-wrap">
-    <h1>⚔ Tournament</h1>
-    <div class="title-sub">Dodge the Shitcoin // Arena Protocol</div>
-    <div class="title-line"></div>
-  </div>
+  <div class="container">
+    <div class="title-wrap">
+      <h1>⚔ Tournament</h1>
+      <div class="title-sub">Dodge the Shitcoin // Arena Protocol</div>
+      <div class="title-line"></div>
+    </div>
 
-  <div class="tabs">
-    <button class="tab active" onclick="switchTab('join')">[ Join ]</button>
-    <button class="tab" onclick="switchTab('create')">[ Create ]</button>
-  </div>
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('join')">[ Join ]</button>
+      <button class="tab" onclick="switchTab('create')">[ Create ]</button>
+    </div>
 
-  <!-- Join -->
-  <div class="card" id="join-panel">
-    <div class="field">
-      <label>Tournament Key</label>
-      <input type="text" id="join-key" placeholder="e.g. A1B2C3" maxlength="12" autocomplete="off" autocorrect="off" autocapitalize="off">
-    </div>
-    <div class="field">
-      <label>Warrior Name</label>
-      <input type="text" id="join-username" placeholder="e.g. Satoshi" maxlength="20" autocomplete="off" autocorrect="off" autocapitalize="off">
-    </div>
-    <button class="btn" onclick="joinTournament()">Enter the Arena</button>
-    <div class="message" id="join-msg"></div>
-  </div>
+    <!-- Join -->
+    <div class="card" id="join-panel">
+      <div class="field">
+        <label>Tournament Key</label>
+        <input type="text" id="join-key" placeholder="e.g. A1B2C3" maxlength="12" autocomplete="off" autocorrect="off"
+          autocapitalize="off">
+      </div>
+      <div class="field">
+        <label>Warrior Name</label>
+        <input type="text" id="join-username" placeholder="e.g. Satoshi" maxlength="20" autocomplete="off"
+          autocorrect="off" autocapitalize="off">
+      </div>
+      <button class="btn" onclick="joinTournament()">Enter the Arena</button>
+      <div class="message" id="join-msg"></div>
+      <div id="payment-box" style="display:none;margin-top:1rem;text-align:center;">
+        <div
+          style="font-family:CinzelBold,serif;color:var(--gold);font-size:0.85rem;letter-spacing:2px;margin-bottom:0.6rem;">
+          LIGHTNING ENTRY PAYMENT
+        </div>
 
-  <!-- Create -->
-  <div class="card" id="create-panel" style="display:none;">
-    <div class="field">
-      <label>Tournament Name</label>
-      <input type="text" id="create-name" placeholder="e.g. Bitcoin Cup 2026" maxlength="40" autocomplete="off">
-    </div>
-    <div class="field">
-      <label>Admin Name</label>
-      <input type="text" id="create-username" placeholder="e.g. Satoshi" maxlength="20" autocomplete="off" autocorrect="off" autocapitalize="off">
-    </div>
-    <div class="field">
-      <label>Bracket Size</label>
-      <div class="format-row">
-        <button class="format-btn active" data-format="2" onclick="selectFormat(2)">Final (2)</button>
-        <button class="format-btn" data-format="4" onclick="selectFormat(4)">Semis (4)</button>
-        <button class="format-btn" data-format="8" onclick="selectFormat(8)">Qtrs (8)</button>
-        <button class="format-btn" data-format="16" onclick="selectFormat(16)">R16 (16)</button>
+        <img id="payment-qr"
+          style="width:230px;height:230px;background:#fff;padding:8px;border-radius:4px;margin-bottom:0.7rem;">
+
+        <button class="btn" id="copy-invoice-btn" onclick="copyInvoice()" style="font-size:0.7rem;padding:0.65rem;">
+          Copy Invoice
+        </button>
+
+        <div id="payment-status" style="margin-top:0.75rem;font-size:0.7rem;color:var(--golddim);line-height:1.5;">
+          Waiting for payment...
+        </div>
       </div>
     </div>
-    <button class="btn" onclick="createTournament()">Forge Tournament</button>
-    <div class="message" id="create-msg"></div>
+
+    <!-- Create -->
+    <div class="card" id="create-panel" style="display:none;">
+      <div class="field">
+        <label>Tournament Name</label>
+        <input type="text" id="create-name" placeholder="e.g. Bitcoin Cup 2026" maxlength="40" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>Admin Name</label>
+        <input type="text" id="create-username" placeholder="e.g. Satoshi" maxlength="20" autocomplete="off"
+          autocorrect="off" autocapitalize="off">
+      </div>
+      <div class="field">
+        <label>Bracket Size</label>
+        <div class="format-row">
+          <button class="format-btn active" data-format="2" onclick="selectFormat(2)">Final (2)</button>
+          <button class="format-btn" data-format="4" onclick="selectFormat(4)">Semis (4)</button>
+          <button class="format-btn" data-format="8" onclick="selectFormat(8)">Qtrs (8)</button>
+          <button class="format-btn" data-format="16" onclick="selectFormat(16)">R16 (16)</button>
+        </div>
+      </div>
+      <button class="btn" onclick="createTournament()">Forge Tournament</button>
+      <div class="message" id="create-msg"></div>
+    </div>
+
+    <div class="back-link"><a href="/">← Return to Game</a></div>
   </div>
 
-  <div class="back-link"><a href="/">← Return to Game</a></div>
-</div>
+  <script>
+    // ── PARTICLES ──
+    (function () {
+      const canvas = document.getElementById('particle-canvas');
+      const ctx = canvas.getContext('2d');
+      const isMob = window.innerWidth < 500;
 
-<script>
-// ── PARTICLES ──
-(function(){
-  const canvas = document.getElementById('particle-canvas');
-  const ctx    = canvas.getContext('2d');
-  const isMob  = window.innerWidth < 500;
+      function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+      }
+      resize();
+      window.addEventListener('resize', resize);
 
-  function resize(){
-    canvas.width  = window.innerWidth;
-    canvas.height = window.innerHeight;
-  }
-  resize();
-  window.addEventListener('resize', resize);
+      const STRINGS = [
+        'The Times 03/Jan/2009',
+        'Chancellor on brink of second bailout for banks',
+        '4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b',
+        '000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f',
+        'KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgd9M7rFU73sVHnoWn',
+        'nonce:2083236893  bits:486604799',
+        'block:0  prev:0000...0000',
+        '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa',
+      ];
+      const PAL = ['245,166,35', '200,130,40', '255,220,100', '160,100,30'];
 
-  const STRINGS = [
-    'The Times 03/Jan/2009',
-    'Chancellor on brink of second bailout for banks',
-    '4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b',
-    '000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f',
-    'KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgd9M7rFU73sVHnoWn',
-    'nonce:2083236893  bits:486604799',
-    'block:0  prev:0000...0000',
-    '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa',
-  ];
-  const PAL = ['245,166,35','200,130,40','255,220,100','160,100,30'];
+      class Bit {
+        constructor(init) { this.reset(init); }
+        reset(init = false) {
+          this.x = Math.random() * canvas.width;
+          this.y = init ? Math.random() * canvas.height : canvas.height + 10;
+          this.char = Math.random() < 0.78 ? (Math.random() < 0.5 ? '0' : '1') : (Math.random() < 0.5 ? '₿' : '⚡');
+          this.size = isMob ? 6 + Math.random() * 5 : 9 + Math.random() * 7;
+          this.vy = -(0.12 + Math.random() * 0.5); this.vx = (Math.random() - .5) * .2;
+          this.life = 0; this.maxLife = 200 + Math.random() * 200;
+          this.col = PAL[Math.floor(Math.random() * PAL.length)];
+          this.bright = Math.random() < 0.1;
+        }
+        tick() { this.life++; this.x += this.vx; this.y += this.vy; if (this.life >= this.maxLife || this.y < -20) this.reset(); }
+        draw() {
+          const p = this.life / this.maxLife;
+          const a = (p < .15 ? p / .15 : p > .8 ? 1 - (p - .8) / .2 : 1) * (this.bright ? .75 : .22);
+          ctx.save(); ctx.globalAlpha = a;
+          if (this.bright) { ctx.shadowColor = `rgba(${this.col},.9)`; ctx.shadowBlur = 8; }
+          ctx.fillStyle = `rgba(${this.col},1)`;
+          ctx.font = `bold ${this.size}px 'Cinzel',serif`;
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText(this.char, this.x, this.y); ctx.restore();
+        }
+      }
+      class Str {
+        constructor(init) { this.reset(init); }
+        reset(init = false) {
+          this.text = STRINGS[Math.floor(Math.random() * STRINGS.length)];
+          this.x = Math.random() * canvas.width;
+          this.y = init ? Math.random() * canvas.height : canvas.height + 20;
+          this.size = isMob ? 5 + Math.random() * 2 : 7 + Math.random() * 3;
+          this.vy = -(0.07 + Math.random() * .18); this.vx = (Math.random() - .5) * .1;
+          this.life = 0; this.maxLife = 400 + Math.random() * 350;
+          this.col = PAL[Math.floor(Math.random() * PAL.length)];
+          this.maxA = 0.07 + Math.random() * .07;
+        }
+        tick() { this.life++; this.x += this.vx; this.y += this.vy; if (this.life >= this.maxLife || this.y < -20) this.reset(); }
+        draw() {
+          const p = this.life / this.maxLife;
+          const a = (p < .1 ? p / .1 : p > .85 ? 1 - (p - .85) / .15 : 1) * this.maxA;
+          ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = `rgba(${this.col},1)`;
+          ctx.font = `${this.size}px 'Cinzel',serif`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+          ctx.fillText(this.text, this.x, this.y); ctx.restore();
+        }
+      }
 
-  class Bit{
-    constructor(init){this.reset(init);}
-    reset(init=false){
-      this.x=Math.random()*canvas.width;
-      this.y=init?Math.random()*canvas.height:canvas.height+10;
-      this.char=Math.random()<0.78?(Math.random()<0.5?'0':'1'):(Math.random()<0.5?'₿':'⚡');
-      this.size=isMob?6+Math.random()*5:9+Math.random()*7;
-      this.vy=-(0.12+Math.random()*0.5);this.vx=(Math.random()-.5)*.2;
-      this.life=0;this.maxLife=200+Math.random()*200;
-      this.col=PAL[Math.floor(Math.random()*PAL.length)];
-      this.bright=Math.random()<0.1;
+      const colW = isMob ? 24 : 18;
+      const drops = Array.from({ length: Math.floor(window.innerWidth / colW) }, (_, i) => ({
+        x: i * colW + colW / 2, y: Math.random() * canvas.height,
+        speed: .4 + Math.random() * .9, alpha: .03 + Math.random() * .04
+      }));
+
+      const bitCount = isMob ? 45 : 85;
+      const strCount = isMob ? 7 : 14;
+      const bits = Array.from({ length: bitCount }, () => new Bit(true));
+      const strs = Array.from({ length: strCount }, () => new Str(true));
+
+      const loop = () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drops.forEach(d => {
+          ctx.save(); ctx.globalAlpha = d.alpha;
+          ctx.fillStyle = 'rgba(200,130,40,1)';
+          ctx.font = `bold 11px 'Cinzel',serif`;
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText(Math.random() < .5 ? '0' : '1', d.x, d.y); ctx.restore();
+          d.y += d.speed; if (d.y > canvas.height + 20) d.y = -10;
+        });
+        strs.forEach(s => { s.tick(); s.draw(); });
+        bits.forEach(b => { b.tick(); b.draw(); });
+        requestAnimationFrame(loop);
+      };
+      loop();
+    })();
+
+    // ── LOGIC ──
+    function getApiBase() {
+      const { protocol, hostname, origin } = window.location;
+      if (hostname === 'localhost' || hostname === '127.0.0.1') return `${protocol}//${hostname}:3001/api`;
+      return `${origin}/api`;
     }
-    tick(){this.life++;this.x+=this.vx;this.y+=this.vy;if(this.life>=this.maxLife||this.y<-20)this.reset();}
-    draw(){
-      const p=this.life/this.maxLife;
-      const a=(p<.15?p/.15:p>.8?1-(p-.8)/.2:1)*(this.bright?.75:.22);
-      ctx.save();ctx.globalAlpha=a;
-      if(this.bright){ctx.shadowColor=`rgba(${this.col},.9)`;ctx.shadowBlur=8;}
-      ctx.fillStyle=`rgba(${this.col},1)`;
-      ctx.font=`bold ${this.size}px 'Cinzel',serif`;
-      ctx.textAlign='center';ctx.textBaseline='middle';
-      ctx.fillText(this.char,this.x,this.y);ctx.restore();
+    const API = getApiBase();
+    let selectedFormat = 2;
+
+    function selectFormat(fmt) {
+      selectedFormat = fmt;
+      document.querySelectorAll('.format-btn').forEach(b => {
+        b.classList.toggle('active', parseInt(b.dataset.format) === fmt);
+      });
     }
-  }
-  class Str{
-    constructor(init){this.reset(init);}
-    reset(init=false){
-      this.text=STRINGS[Math.floor(Math.random()*STRINGS.length)];
-      this.x=Math.random()*canvas.width;
-      this.y=init?Math.random()*canvas.height:canvas.height+20;
-      this.size=isMob?5+Math.random()*2:7+Math.random()*3;
-      this.vy=-(0.07+Math.random()*.18);this.vx=(Math.random()-.5)*.1;
-      this.life=0;this.maxLife=400+Math.random()*350;
-      this.col=PAL[Math.floor(Math.random()*PAL.length)];
-      this.maxA=0.07+Math.random()*.07;
+
+    function switchTab(tab) {
+      document.querySelectorAll('.tab').forEach((t, i) => {
+        t.classList.toggle('active', (tab === 'join' && i === 0) || (tab === 'create' && i === 1));
+      });
+      document.getElementById('join-panel').style.display = tab === 'join' ? 'block' : 'none';
+      document.getElementById('create-panel').style.display = tab === 'create' ? 'block' : 'none';
     }
-    tick(){this.life++;this.x+=this.vx;this.y+=this.vy;if(this.life>=this.maxLife||this.y<-20)this.reset();}
-    draw(){
-      const p=this.life/this.maxLife;
-      const a=(p<.1?p/.1:p>.85?1-(p-.85)/.15:1)*this.maxA;
-      ctx.save();ctx.globalAlpha=a;ctx.fillStyle=`rgba(${this.col},1)`;
-      ctx.font=`${this.size}px 'Cinzel',serif`;ctx.textAlign='left';ctx.textBaseline='middle';
-      ctx.fillText(this.text,this.x,this.y);ctx.restore();
+
+    function showMsg(id, text, type) {
+      const el = document.getElementById(id);
+      el.className = 'message ' + type; el.innerHTML = text;
     }
-  }
 
-  const colW=isMob?24:18;
-  const drops=Array.from({length:Math.floor(window.innerWidth/colW)},(_,i)=>({
-    x:i*colW+colW/2,y:Math.random()*canvas.height,
-    speed:.4+Math.random()*.9,alpha:.03+Math.random()*.04
-  }));
-
-  const bitCount = isMob ? 45 : 85;
-  const strCount = isMob ? 7  : 14;
-  const bits=Array.from({length:bitCount},()=>new Bit(true));
-  const strs=Array.from({length:strCount},()=>new Str(true));
-
-  const loop=()=>{
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    drops.forEach(d=>{
-      ctx.save();ctx.globalAlpha=d.alpha;
-      ctx.fillStyle='rgba(200,130,40,1)';
-      ctx.font=`bold 11px 'Cinzel',serif`;
-      ctx.textAlign='center';ctx.textBaseline='middle';
-      ctx.fillText(Math.random()<.5?'0':'1',d.x,d.y);ctx.restore();
-      d.y+=d.speed;if(d.y>canvas.height+20)d.y=-10;
-    });
-    strs.forEach(s=>{s.tick();s.draw();});
-    bits.forEach(b=>{b.tick();b.draw();});
-    requestAnimationFrame(loop);
-  };
-  loop();
-})();
-
-// ── LOGIC ──
-function getApiBase(){
-  const { protocol, hostname, origin } = window.location;
-  if (hostname === 'localhost' || hostname === '127.0.0.1') return `${protocol}//${hostname}:3001/api`;
-  return `${origin}/api`;
-}
-const API=getApiBase();
-let selectedFormat=2;
-
-function selectFormat(fmt){
-  selectedFormat=fmt;
-  document.querySelectorAll('.format-btn').forEach(b=>{
-    b.classList.toggle('active',parseInt(b.dataset.format)===fmt);
-  });
-}
-
-function switchTab(tab){
-  document.querySelectorAll('.tab').forEach((t,i)=>{
-    t.classList.toggle('active',(tab==='join'&&i===0)||(tab==='create'&&i===1));
-  });
-  document.getElementById('join-panel').style.display=tab==='join'?'block':'none';
-  document.getElementById('create-panel').style.display=tab==='create'?'block':'none';
-}
-
-function showMsg(id,text,type){
-  const el=document.getElementById(id);
-  el.className='message '+type;el.innerHTML=text;
-}
+    let currentInvoice = null;
+let paymentPolling = null;
 
 async function joinTournament(){
-  const key=document.getElementById('join-key').value.trim();
-  const username=document.getElementById('join-username').value.trim();
-  if(!key||!username)return showMsg('join-msg','▸ Fill in all fields','error');
-  try{
-    const res=await fetch(`${API}/tournaments/${key}/join`,{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({username})
+  const key = document.getElementById('join-key').value.trim();
+  const username = document.getElementById('join-username').value.trim();
+
+  if (!key || !username) {
+    return showMsg('join-msg', '▸ Fill in all fields', 'error');
+  }
+
+  try {
+    showMsg('join-msg', '▸ Generating Lightning invoice...', 'success');
+
+    const invoiceRes = await fetch(`${API}/payments/tournament-entry`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tournamentKey: key,
+        playerName: username
+      })
     });
-    const data=await res.json();
-    if(!res.ok)return showMsg('join-msg','▸ '+(data.error||'Failed'),'error');
-    showMsg('join-msg',`▸ Arena entered! <a href="index.html?key=${key}" target="_blank">View Bracket →</a>`,'success');
-  }catch(e){showMsg('join-msg','▸ Network error — is the server running?','error');}
+
+    const invoiceData = await invoiceRes.json();
+
+    if (!invoiceRes.ok) {
+      return showMsg('join-msg', '▸ ' + (invoiceData.error || 'Payment failed'), 'error');
+    }
+
+    currentInvoice = invoiceData;
+
+    document.getElementById('payment-box').style.display = 'block';
+    document.getElementById('payment-qr').src = invoiceData.qrDataUrl;
+    document.getElementById('payment-status').textContent =
+      `Pay ${invoiceData.amountSats} sats to enter. Waiting for payment...`;
+
+    startPaymentPolling(key, username, invoiceData.paymentHash);
+
+  } catch(e) {
+    showMsg('join-msg', '▸ Network error — is the server running?', 'error');
+  }
 }
 
-async function createTournament(){
-  const name=document.getElementById('create-name').value.trim();
-  const username=document.getElementById('create-username').value.trim();
-  if(!name||!username)return showMsg('create-msg','▸ Fill in all fields','error');
-  try{
-    const res=await fetch(`${API}/tournaments`,{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({name,username,format:selectedFormat})
-    });
-    const data=await res.json();
-    if(!res.ok)return showMsg('create-msg','▸ '+(data.error||'Failed'),'error');
-    // Redirect straight to admin bracket
-    window.location.href = `index.html?key=${data.key}&admin=${data.adminKey}`;
-  }catch(e){showMsg('create-msg','▸ Network error — is the server running?','error');}
+async function copyInvoice() {
+  if (!currentInvoice?.paymentRequest) return;
+
+  try {
+    await navigator.clipboard.writeText(currentInvoice.paymentRequest);
+    document.getElementById('copy-invoice-btn').textContent = 'Copied';
+    setTimeout(() => {
+      document.getElementById('copy-invoice-btn').textContent = 'Copy Invoice';
+    }, 1200);
+  } catch (e) {
+    document.getElementById('copy-invoice-btn').textContent = 'Copy failed';
+  }
 }
 
-const params=new URLSearchParams(window.location.search);
-if(params.get('key'))document.getElementById('join-key').value=params.get('key');
-</script>
+function startPaymentPolling(key, username, paymentHash) {
+  if (paymentPolling) clearInterval(paymentPolling);
+
+  let tries = 0;
+  const maxTries = 240;
+
+  paymentPolling = setInterval(async () => {
+    tries++;
+
+    try {
+      const res = await fetch(`${API}/payments/status/${paymentHash}`);
+      const data = await res.json();
+
+      document.getElementById('payment-status').textContent = `Payment status: ${data.status}`;
+
+      if (data.paid) {
+        clearInterval(paymentPolling);
+        paymentPolling = null;
+
+        document.getElementById('payment-status').textContent = 'Payment confirmed. Entering tournament...';
+
+        await completePaidJoin(key, username, paymentHash);
+        return;
+      }
+
+      if (data.status === 'EXPIRED' || tries >= maxTries) {
+        clearInterval(paymentPolling);
+        paymentPolling = null;
+
+        showMsg('join-msg', '▸ Invoice expired. Generate a new one.', 'error');
+        document.getElementById('payment-status').textContent = 'Invoice expired.';
+      }
+
+    } catch (e) {
+      if (tries >= maxTries) {
+        clearInterval(paymentPolling);
+        paymentPolling = null;
+        showMsg('join-msg', '▸ Could not verify payment.', 'error');
+      }
+    }
+  }, 2000);
+}
+
+async function completePaidJoin(key, username, paymentHash) {
+  const res = await fetch(`${API}/tournaments/${key}/join`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      username,
+      paymentHash
+    })
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    return showMsg('join-msg', '▸ ' + (data.error || 'Failed to join after payment'), 'error');
+  }
+
+  showMsg(
+    'join-msg',
+    `▸ Paid entry confirmed! <a href="index.html?key=${key}" target="_blank">View Bracket →</a>`,
+    'success'
+  );
+}
+
+    async function createTournament() {
+      const name = document.getElementById('create-name').value.trim();
+      const username = document.getElementById('create-username').value.trim();
+      if (!name || !username) return showMsg('create-msg', '▸ Fill in all fields', 'error');
+      try {
+        const res = await fetch(`${API}/tournaments`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, username, format: selectedFormat })
+        });
+        const data = await res.json();
+        if (!res.ok) return showMsg('create-msg', '▸ ' + (data.error || 'Failed'), 'error');
+        // Redirect straight to admin bracket
+        window.location.href = `index.html?key=${data.key}&admin=${data.adminKey}`;
+      } catch (e) { showMsg('create-msg', '▸ Network error — is the server running?', 'error'); }
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('key')) document.getElementById('join-key').value = params.get('key');
+  </script>
 </body>
+
 </html>
