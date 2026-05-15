@@ -379,7 +379,10 @@ function connectWS() {
     if (ws) { try { ws.close(); } catch(e) {} ws = null; }
 
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${wsProtocol}//${window.location.hostname}:3001`;
+    const wsHost = (!window.location.hostname || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+      ? 'localhost:3001'
+      : window.location.host;
+    const wsUrl = `${wsProtocol}//${wsHost}`;
     ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {

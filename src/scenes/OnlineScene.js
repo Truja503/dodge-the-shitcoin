@@ -850,7 +850,8 @@ export default class OnlineScene extends Phaser.Scene {
 
     async _saveMatchResult(winner) {
         try {
-            const API = `${window.location.protocol}//${window.location.hostname}:3001/api`;
+            const isLocal = !window.location.hostname || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            const API = isLocal ? 'http://localhost:3001/api' : `${window.location.origin}/api`;
             
             // Record stats for host player (player1)
             const hostUser = this.isHost ? this.username : this.opponentName;

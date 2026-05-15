@@ -35,7 +35,10 @@ if (isOnlineMode) {
 
     if (matchData.roomId) {
         const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = matchData.wsUrl || `${wsProtocol}//${window.location.hostname}:3001`;
+        const wsHost = (!window.location.hostname || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+            ? 'localhost:3001'
+            : window.location.host;
+        const wsUrl = matchData.wsUrl || `${wsProtocol}//${wsHost}`;
 
         // Wait for Phaser to boot, then connect
         let started = false;

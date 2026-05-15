@@ -477,7 +477,12 @@ body::before {
 })();
 
 // ── AUTH LOGIC ──
-const API = 'http://localhost:3001/api';
+function getApiBase() {
+  const { hostname, origin } = window.location;
+  if (!hostname || hostname === 'localhost' || hostname === '127.0.0.1') return 'http://localhost:3001/api';
+  return `${origin}/api`;
+}
+const API = getApiBase();
 
 // Auto-redirect if already logged in
 (function() {

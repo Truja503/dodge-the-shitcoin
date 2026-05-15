@@ -445,7 +445,9 @@ export default class GameScene extends Phaser.Scene {
             const tAdmin = localStorage.getItem('tournamentAdminKey');
             const tMatch = localStorage.getItem('tournamentMatchId');
             if (tKey && tAdmin && tMatch) {
-                fetch(`http://localhost:3001/api/tournaments/${tKey}/match/${tMatch}`, {
+                const isLocal = !window.location.hostname || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+                const apiBase = isLocal ? 'http://localhost:3001/api' : `${window.location.origin}/api`;
+                fetch(`${apiBase}/tournaments/${tKey}/match/${tMatch}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ adminKey: tAdmin, player1Score: p1Score, player2Score: p2Score })

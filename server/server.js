@@ -3,6 +3,7 @@ const cors = require('cors');
 const crypto = require('crypto');
 const http = require('http');
 const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 const { getDb, run, get, all, save } = require('./db');
 const { setupWebSocket, broadcastBracketUpdate } = require('./ws');
 const { setupOnlineWS } = require('./online');
@@ -307,7 +308,7 @@ app.post('/api/tournaments/:key/join', (req, res) => {
     SET joined_at = CURRENT_TIMESTAMP
     WHERE payment_hash = ?
   `, [paymentHash]);
-  
+
   broadcastBracketUpdate(req.params.key, getTournamentFull(req.params.key));
   res.json({ success: true, username: user.username });
 });
