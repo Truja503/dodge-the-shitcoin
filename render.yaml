@@ -2,14 +2,14 @@ services:
   - type: web
     name: dodge-the-shitcoin
     runtime: node
-    plan: starter
+    plan: free
     buildCommand: npm ci
     startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
       - key: DB_PATH
-        value: /var/data/tournament.db
+        value: /tmp/tournament.db
       - key: TOURNAMENT_ENTRY_SATS
         value: 100
       - key: BLINK_API_KEY
@@ -20,7 +20,4 @@ services:
         sync: false
       - key: BLINK_WALLET_ID
         sync: false
-    disk:
-      name: dodge-data
-      mountPath: /var/data
-      sizeGB: 1
+
