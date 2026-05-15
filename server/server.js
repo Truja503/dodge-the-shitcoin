@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const crypto = require('crypto');
 const http = require('http');
+const path = require('path');
 const { getDb, run, get, all, save } = require('./db');
 const { setupWebSocket, broadcastBracketUpdate } = require('./ws');
 const { setupOnlineWS } = require('./online');
@@ -11,6 +12,7 @@ const server = http.createServer(app);
 
 app.use(cors({ origin: true }));
 app.use(express.json());
+app.use(express.static(path.join(__dirname, '..')));
 
 const wss = setupWebSocket(server);
 setupOnlineWS(wss);

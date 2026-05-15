@@ -502,9 +502,10 @@ export default class TournamentMatchScene extends Phaser.Scene {
 
         // ── Auto-report to tournament API ──
         if (this.adminKeyParam && this.tournamentKey && this.matchId) {
-            const apiBase = window.location.origin.includes('localhost')
-                ? 'http://localhost:3001/api'
-                : window.location.origin + '/api';
+            const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+            const apiBase = isLocal
+                ? `${window.location.protocol}//${window.location.hostname}:3001/api`
+                : `${window.location.origin}/api`;
             fetch(`${apiBase}/tournaments/${this.tournamentKey}/match/${this.matchId}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },

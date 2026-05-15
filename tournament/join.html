@@ -414,7 +414,12 @@ h1{
 })();
 
 // ── LOGIC ──
-const API='http://localhost:3001/api';
+function getApiBase(){
+  const { protocol, hostname, origin } = window.location;
+  if (hostname === 'localhost' || hostname === '127.0.0.1') return `${protocol}//${hostname}:3001/api`;
+  return `${origin}/api`;
+}
+const API=getApiBase();
 let selectedFormat=2;
 
 function selectFormat(fmt){

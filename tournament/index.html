@@ -598,7 +598,18 @@ body {
 </div>
 
 <script>
-const API = 'http://localhost:3001/api';
+function getApiBase(){
+  const { protocol, hostname, origin } = window.location;
+  if (hostname === 'localhost' || hostname === '127.0.0.1') return `${protocol}//${hostname}:3001/api`;
+  return `${origin}/api`;
+}
+function getWsBase(){
+  const { protocol, hostname, host } = window.location;
+  const wsProtocol = protocol === 'https:' ? 'wss:' : 'ws:';
+  if (hostname === 'localhost' || hostname === '127.0.0.1') return `${wsProtocol}//${hostname}:3001`;
+  return `${wsProtocol}//${host}`;
+}
+const API = getApiBase();
 const params = new URLSearchParams(window.location.search);
 const tournamentKey = params.get('key');
 const adminKey = params.get('admin');
@@ -640,7 +651,7 @@ async function loadTournament() {
 
 function connectWS() {
   try {
-    ws = new WebSocket(`ws://localhost:3001`);
+    ws = new WebSocket(getWsBase());
     ws.onopen = () => ws.send(JSON.stringify({ type: 'subscribe', key: tournamentKey }));
     ws.onmessage = (e) => {
       try {
@@ -704,24 +715,25 @@ function renderPlayerList() {
 
 function renderBracket() {
   const container = document.getElementById('bracket-container');
-  // Always render full 16-bracket visual. Actual matches populate based on tournament format.
-  const format = 16;
-  const totalRounds = 4;
+  const format = parseInt(tournament.format) || 16;
+  const totalRounds = Math.log2(format);
   const matches = tournament.matches || [];
   const players = tournament.players || [];
 
-  // Split matches into left half (matches 1-4 of R16, 1-2 of QF, 1 of SF)
-  // and right half (matches 5-8 of R16, 3-4 of QF, 2 of SF)
-  // Final is the center trophy match
-
   function buildHalf(side) {
     let html = '';
-    // Always show 3 rounds per half: R16(4), QF(2), SF(1)
-    const roundsPerHalf = [
-      { round: 1, count: 4, offset: side === 'left' ? 0 : 4 },
-      { round: 2, count: 2, offset: side === 'left' ? 0 : 2 },
-      { round: 3, count: 1, offset: side === 'left' ? 0 : 1 },
-    ];
+    const roundsPerHalf = [];
+    for (let round = 1; round < totalRounds; round++) {
+      const matchesInRound = format / Math.pow(2, round);
+      const leftCount = Math.ceil(matchesInRound / 2);
+      const rightCount = Math.floor(matchesInRound / 2);
+      const count = side === 'left' ? leftCount : rightCount;
+      if (count > 0) roundsPerHalf.push({
+        round,
+        count,
+        offset: side === 'left' ? 0 : leftCount
+      });
+    }
 
     for (let ri = 0; ri < roundsPerHalf.length; ri++) {
       const { round, count, offset } = roundsPerHalf[ri];
@@ -789,10 +801,9 @@ function renderBracket() {
     return html;
   }
 
-  // Build: LEFT half → TROPHY center → RIGHT half
+  // Build: LEFT half -> TROPHY center -> RIGHT half
   let html = '';
 
-  // Left half (R16 matches 1-4 → QF 1-2 → SF 1)
   html += '<div class="bracket-half left">';
   html += buildHalf('left');
   html += '</div>';
@@ -825,7 +836,6 @@ function renderBracket() {
   }
   html += '</div>';
 
-  // Right half (R16 matches 5-8 → QF 3-4 → SF 2) — reversed order
   html += '<div class="bracket-half right">';
   html += buildHalf('right');
   html += '</div>';
