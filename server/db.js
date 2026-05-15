@@ -2,13 +2,17 @@ const initSqlJs = require('sql.js');
 const fs = require('fs');
 const path = require('path');
 
-const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'tournament.db');
+const DB_PATH = process.env.DB_PATH || (
+  process.env.VERCEL === '1' ? '/tmp/tournament.db' : path.join(__dirname, 'tournament.db')
+);
 
 let db = null;
 
 async function getDb() {
   if (db) return db;
-  const SQL = await initSqlJs();
+  const SQL = await initSqlJs({
+    locateFile: file => path.join(path.dirname(require.resolve('sql.js')), file)
+  });
 
   if (fs.existsSync(DB_PATH)) {
     const buf = fs.readFileSync(DB_PATH);

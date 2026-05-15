@@ -616,6 +616,7 @@ const adminKey = params.get('admin');
 let tournament = null;
 let ws = null;
 let currentMatchId = null;
+let pollingTimer = null;
 
 const roundNames = {
   1: { 16: 'Round of 16', 8: 'Quarter-finals', 4: 'Semi-finals', 2: 'Final' },
@@ -662,8 +663,14 @@ function connectWS() {
         }
       } catch (err) {}
     };
-    ws.onclose = () => setTimeout(connectWS, 3000);
-  } catch (e) {}
+    ws.onclose = () => startPolling();
+    ws.onerror = () => startPolling();
+  } catch (e) { startPolling(); }
+}
+
+function startPolling() {
+  if (pollingTimer) return;
+  pollingTimer = setInterval(loadTournament, 3000);
 }
 
 function render() {

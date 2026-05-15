@@ -9,13 +9,30 @@ const { setupOnlineWS } = require('./online');
 
 const app = express();
 const server = http.createServer(app);
+const isVercel = process.env.VERCEL === '1';
 
 app.use(cors({ origin: true }));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '..')));
 
-const wss = setupWebSocket(server);
-setupOnlineWS(wss);
+if (!isVercel) {
+  const wss = setupWebSocket(server);
+  setupOnlineWS(wss);
+}
+
+app.get('/api/health', (req, res) => {
+  res.json({ ok: true, vercel: isVercel });
+});
+
+const dbReady = getDb();
+app.use(async (req, res, next) => {
+  try {
+    await dbReady;
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
 
 // ── Helpers ──────────────────────────────────────────────────────
 function genKey(len = 6) {
@@ -395,19 +412,23 @@ app.post('/api/online-match', (req, res) => {
 // ── Start ────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3001;
 
-getDb().then(() => {
-  server.listen(PORT, () => {
-    console.log(`Tournament server running on port ${PORT}`);
-  });
-  server.on('error', (err) => {
-    if (err.code === 'EADDRINUSE') {
-      console.error(`Port ${PORT} already in use. Kill the other process or use PORT=XXXX node server.js`);
-    } else {
-      console.error('Server error:', err);
-    }
+if (!isVercel) {
+  dbReady.then(() => {
+    server.listen(PORT, () => {
+      console.log(`Tournament server running on port ${PORT}`);
+    });
+    server.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        console.error(`Port ${PORT} already in use. Kill the other process or use PORT=XXXX node server.js`);
+      } else {
+        console.error('Server error:', err);
+      }
+      process.exit(1);
+    });
+  }).catch(err => {
+    console.error('Failed to initialize database:', err);
     process.exit(1);
   });
-}).catch(err => {
-  console.error('Failed to initialize database:', err);
-  process.exit(1);
-});
+}
+
+module.exports = app;

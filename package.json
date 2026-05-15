@@ -1,0 +1,19 @@
+{
+  "name": "dodge-the-shitcoin",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Dodge the Shitcoin web game",
+  "scripts": {
+    "start": "node server/server.js",
+    "vercel-build": "echo \"No build step required\""
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "sql.js": "^1.10.3",
+    "ws": "^8.16.0"
+  },
+  "engines": {
+    "node": "24.x"
+  }
+}
