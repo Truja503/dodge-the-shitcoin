@@ -1,5 +1,7 @@
-const BLINK_API = "https://api.blink.sv/graphql";
 const crypto = require("crypto");
+
+const BLINK_API = "https://api.blink.sv/graphql";
+
 async function blinkRequest(query, variables = {}, apiKey = process.env.BLINK_API_KEY) {
   if (!apiKey) throw new Error("Missing Blink API key");
 
@@ -21,15 +23,13 @@ async function blinkRequest(query, variables = {}, apiKey = process.env.BLINK_AP
 
   return json.data;
 }
+
 async function createInvoice({ walletId, amountSats, memo }) {
   const cleanWalletId = String(walletId || "").trim();
   const cleanAmount = Number(amountSats);
   const cleanMemo = String(memo || "Tournament entry").slice(0, 120);
 
-  if (!cleanWalletId) {
-    throw new Error("Missing BLINK_WALLET_ID");
-  }
-
+  if (!cleanWalletId) throw new Error("Missing BLINK_WALLET_ID");
   if (!Number.isInteger(cleanAmount) || cleanAmount <= 0) {
     throw new Error(`Invalid amountSats: ${amountSats}`);
   }
@@ -83,6 +83,7 @@ async function createInvoice({ walletId, amountSats, memo }) {
 
   return payload.invoice;
 }
+
 async function getInvoiceStatus(paymentHash) {
   const query = `
     query LnInvoicePaymentStatusByHash($input: LnInvoicePaymentStatusByHashInput!) {
@@ -95,14 +96,62 @@ async function getInvoiceStatus(paymentHash) {
     }
   `;
 
-  const data = await blinkRequest(query, {
-    input: { paymentHash },
-  }, process.env.BLINK_READ_API_KEY || process.env.BLINK_API_KEY);
+  const data = await blinkRequest(
+    query,
+    { input: { paymentHash } },
+    process.env.BLINK_READ_API_KEY || process.env.BLINK_API_KEY
+  );
 
   return data.lnInvoicePaymentStatusByHash;
+}
+
+async function payInvoice({ walletId, paymentRequest }) {
+  const cleanWalletId = String(walletId || "").trim();
+  const cleanPaymentRequest = String(paymentRequest || "").trim();
+
+  if (!cleanWalletId) throw new Error("Missing BLINK_WALLET_ID");
+  if (!cleanPaymentRequest.startsWith("lnbc")) {
+    throw new Error("Invalid Lightning invoice");
+  }
+
+  const query = `
+    mutation LnInvoicePaymentSend($input: LnInvoicePaymentInput!) {
+      lnInvoicePaymentSend(input: $input) {
+        status
+        errors {
+          message
+          path
+          code
+        }
+        transaction {
+          id
+        }
+      }
+    }
+  `;
+
+  const data = await blinkRequest(
+    query,
+    {
+      input: {
+        walletId: cleanWalletId,
+        paymentRequest: cleanPaymentRequest
+      }
+    },
+    process.env.BLINK_WRITE_API_KEY || process.env.BLINK_API_KEY
+  );
+
+  const payload = data.lnInvoicePaymentSend;
+
+  if (payload.errors?.length) {
+    throw new Error(payload.errors.map(e => e.message).join(", "));
+  }
+
+  return payload;
 }
 
 module.exports = {
   createInvoice,
   getInvoiceStatus,
+  payInvoice,
 };

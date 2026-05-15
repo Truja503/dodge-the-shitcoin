@@ -685,127 +685,208 @@
     }
 
     let currentInvoice = null;
-let paymentPolling = null;
+    let paymentPolling = null;
 
-async function joinTournament(){
-  const key = document.getElementById('join-key').value.trim();
-  const username = document.getElementById('join-username').value.trim();
+    async function joinTournament() {
+      const key = document.getElementById('join-key').value.trim();
+      const username = document.getElementById('join-username').value.trim();
 
-  if (!key || !username) {
-    return showMsg('join-msg', '▸ Fill in all fields', 'error');
-  }
+      if (!key || !username) {
+        return showMsg('join-msg', '▸ Fill in all fields', 'error');
+      }
 
-  try {
-    showMsg('join-msg', '▸ Generating Lightning invoice...', 'success');
+      try {
+        showMsg('join-msg', '▸ Generating Lightning invoice...', 'success');
 
-    const invoiceRes = await fetch(`${API}/payments/tournament-entry`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        tournamentKey: key,
-        playerName: username
-      })
-    });
+        const invoiceRes = await fetch(`${API}/payments/tournament-entry`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tournamentKey: key,
+            playerName: username
+          })
+        });
 
-    const invoiceData = await invoiceRes.json();
+        const invoiceData = await invoiceRes.json();
 
-    if (!invoiceRes.ok) {
-      return showMsg('join-msg', '▸ ' + (invoiceData.error || 'Payment failed'), 'error');
+        if (!invoiceRes.ok) {
+          return showMsg('join-msg', '▸ ' + (invoiceData.error || 'Payment failed'), 'error');
+        }
+
+        currentInvoice = invoiceData;
+
+        document.getElementById('payment-box').style.display = 'block';
+        document.getElementById('payment-qr').src = invoiceData.qrDataUrl;
+        document.getElementById('payment-status').textContent =
+          `Pay ${invoiceData.amountSats} sats to enter. Waiting for payment...`;
+
+        startPaymentPolling(key, username, invoiceData.paymentHash);
+
+      } catch (e) {
+        showMsg('join-msg', '▸ Network error — is the server running?', 'error');
+      }
     }
 
-    currentInvoice = invoiceData;
+    async function copyInvoice() {
+      if (!currentInvoice?.paymentRequest) return;
 
-    document.getElementById('payment-box').style.display = 'block';
-    document.getElementById('payment-qr').src = invoiceData.qrDataUrl;
-    document.getElementById('payment-status').textContent =
-      `Pay ${invoiceData.amountSats} sats to enter. Waiting for payment...`;
+      try {
+        await navigator.clipboard.writeText(currentInvoice.paymentRequest);
+        document.getElementById('copy-invoice-btn').textContent = 'Copied';
+        setTimeout(() => {
+          document.getElementById('copy-invoice-btn').textContent = 'Copy Invoice';
+        }, 1200);
+      } catch (e) {
+        document.getElementById('copy-invoice-btn').textContent = 'Copy failed';
+      }
+    }
 
-    startPaymentPolling(key, username, invoiceData.paymentHash);
+    function startPaymentPolling(key, username, paymentHash) {
+      if (paymentPolling) clearInterval(paymentPolling);
 
-  } catch(e) {
-    showMsg('join-msg', '▸ Network error — is the server running?', 'error');
-  }
-}
+      let tries = 0;
+      const maxTries = 240;
 
-async function copyInvoice() {
-  if (!currentInvoice?.paymentRequest) return;
+      paymentPolling = setInterval(async () => {
+        tries++;
 
-  try {
-    await navigator.clipboard.writeText(currentInvoice.paymentRequest);
-    document.getElementById('copy-invoice-btn').textContent = 'Copied';
-    setTimeout(() => {
-      document.getElementById('copy-invoice-btn').textContent = 'Copy Invoice';
-    }, 1200);
-  } catch (e) {
-    document.getElementById('copy-invoice-btn').textContent = 'Copy failed';
-  }
-}
+        try {
+          const res = await fetch(`${API}/payments/status/${paymentHash}`);
+          const data = await res.json();
 
-function startPaymentPolling(key, username, paymentHash) {
-  if (paymentPolling) clearInterval(paymentPolling);
+          document.getElementById('payment-status').textContent = `Payment status: ${data.status}`;
 
-  let tries = 0;
-  const maxTries = 240;
+          if (data.paid) {
+            clearInterval(paymentPolling);
+            paymentPolling = null;
 
-  paymentPolling = setInterval(async () => {
-    tries++;
+            document.getElementById('payment-status').textContent = 'Payment confirmed. Entering tournament...';
 
-    try {
-      const res = await fetch(`${API}/payments/status/${paymentHash}`);
+            await completePaidJoin(key, username, paymentHash);
+            return;
+          }
+
+          if (data.status === 'EXPIRED' || tries >= maxTries) {
+            clearInterval(paymentPolling);
+            paymentPolling = null;
+            showMsg('join-msg', '▸ Invoice expired. Generate a new one.', 'error');
+            document.getElementById('payment-status').textContent = 'Invoice expired.';
+          }
+
+        } catch (e) {
+          if (tries >= maxTries) {
+            clearInterval(paymentPolling);
+            paymentPolling = null;
+            showMsg('join-msg', '▸ Could not verify payment.', 'error');
+          }
+        }
+      }, 2000);
+    }
+
+    async function completePaidJoin(key, username, paymentHash) {
+      const res = await fetch(`${API}/tournaments/${key}/join`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username,
+          paymentHash
+        })
+      });
+
       const data = await res.json();
 
-      document.getElementById('payment-status').textContent = `Payment status: ${data.status}`;
-
-      if (data.paid) {
-        clearInterval(paymentPolling);
-        paymentPolling = null;
-
-        document.getElementById('payment-status').textContent = 'Payment confirmed. Entering tournament...';
-
-        await completePaidJoin(key, username, paymentHash);
-        return;
+      if (!res.ok) {
+        return showMsg('join-msg', '▸ ' + (data.error || 'Failed to join after payment'), 'error');
       }
 
-      if (data.status === 'EXPIRED' || tries >= maxTries) {
-        clearInterval(paymentPolling);
-        paymentPolling = null;
+      showMsg(
+        'join-msg',
+        `▸ Paid entry confirmed!
+     <br><a href="index.html?key=${key}" target="_blank">View Bracket →</a>
+     <br><a href="${data.claimUrl}" target="_blank">Open Private Claim Page →</a>
+     <br><span style="color:#6b5a30;">Keep this private link. If you win, claim from there.</span>`,
+        'success'
+      );
+    }
+    async function copyInvoice() {
+      if (!currentInvoice?.paymentRequest) return;
 
-        showMsg('join-msg', '▸ Invoice expired. Generate a new one.', 'error');
-        document.getElementById('payment-status').textContent = 'Invoice expired.';
-      }
-
-    } catch (e) {
-      if (tries >= maxTries) {
-        clearInterval(paymentPolling);
-        paymentPolling = null;
-        showMsg('join-msg', '▸ Could not verify payment.', 'error');
+      try {
+        await navigator.clipboard.writeText(currentInvoice.paymentRequest);
+        document.getElementById('copy-invoice-btn').textContent = 'Copied';
+        setTimeout(() => {
+          document.getElementById('copy-invoice-btn').textContent = 'Copy Invoice';
+        }, 1200);
+      } catch (e) {
+        document.getElementById('copy-invoice-btn').textContent = 'Copy failed';
       }
     }
-  }, 2000);
-}
 
-async function completePaidJoin(key, username, paymentHash) {
-  const res = await fetch(`${API}/tournaments/${key}/join`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      username,
-      paymentHash
-    })
-  });
+    function startPaymentPolling(key, username, paymentHash) {
+      if (paymentPolling) clearInterval(paymentPolling);
 
-  const data = await res.json();
+      let tries = 0;
+      const maxTries = 240;
 
-  if (!res.ok) {
-    return showMsg('join-msg', '▸ ' + (data.error || 'Failed to join after payment'), 'error');
-  }
+      paymentPolling = setInterval(async () => {
+        tries++;
 
-  showMsg(
-    'join-msg',
-    `▸ Paid entry confirmed! <a href="index.html?key=${key}" target="_blank">View Bracket →</a>`,
-    'success'
-  );
-}
+        try {
+          const res = await fetch(`${API}/payments/status/${paymentHash}`);
+          const data = await res.json();
+
+          document.getElementById('payment-status').textContent = `Payment status: ${data.status}`;
+
+          if (data.paid) {
+            clearInterval(paymentPolling);
+            paymentPolling = null;
+
+            document.getElementById('payment-status').textContent = 'Payment confirmed. Entering tournament...';
+
+            await completePaidJoin(key, username, paymentHash);
+            return;
+          }
+
+          if (data.status === 'EXPIRED' || tries >= maxTries) {
+            clearInterval(paymentPolling);
+            paymentPolling = null;
+
+            showMsg('join-msg', '▸ Invoice expired. Generate a new one.', 'error');
+            document.getElementById('payment-status').textContent = 'Invoice expired.';
+          }
+
+        } catch (e) {
+          if (tries >= maxTries) {
+            clearInterval(paymentPolling);
+            paymentPolling = null;
+            showMsg('join-msg', '▸ Could not verify payment.', 'error');
+          }
+        }
+      }, 2000);
+    }
+
+    async function completePaidJoin(key, username, paymentHash) {
+      const res = await fetch(`${API}/tournaments/${key}/join`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username,
+          paymentHash
+        })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        return showMsg('join-msg', '▸ ' + (data.error || 'Failed to join after payment'), 'error');
+      }
+
+      showMsg(
+        'join-msg',
+        `▸ Paid entry confirmed! <a href="index.html?key=${key}" target="_blank">View Bracket →</a>`,
+        'success'
+      );
+    }
 
     async function createTournament() {
       const name = document.getElementById('create-name').value.trim();

@@ -1,3 +1,7 @@
+const dotenv = require('dotenv');
+const nodePath = require('path');
+
+
 const express = require('express');
 const cors = require('cors');
 const crypto = require('crypto');
@@ -8,7 +12,7 @@ const { getDb, run, get, all, save } = require('./db');
 const { setupWebSocket, broadcastBracketUpdate } = require('./ws');
 const { setupOnlineWS } = require('./online');
 const QRCode = require('qrcode');
-const { createInvoice, getInvoiceStatus } = require('./blink');
+const { createInvoice, getInvoiceStatus, payInvoice } = require('./blink');
 
 const app = express();
 const server = http.createServer(app);
@@ -55,9 +59,33 @@ function ensurePaymentTables() {
       payment_request TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'PENDING',
       external_id TEXT,
+      claim_code TEXT UNIQUE,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       paid_at DATETIME,
       joined_at DATETIME
+    )
+  `);
+
+  try {
+    run(`ALTER TABLE tournament_payments ADD COLUMN claim_code TEXT UNIQUE`);
+  } catch (e) {}
+
+  try {
+    run(`ALTER TABLE tournament_payments ADD COLUMN joined_at DATETIME`);
+  } catch (e) {}
+
+  run(`
+    CREATE TABLE IF NOT EXISTS tournament_payouts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tournament_key TEXT NOT NULL UNIQUE,
+      winner_name TEXT NOT NULL,
+      winner_prize_sats INTEGER NOT NULL,
+      payment_request TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'PENDING',
+      blink_status TEXT,
+      blink_tx_id TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      paid_at DATETIME
     )
   `);
 }
@@ -259,33 +287,17 @@ app.get('/api/tournaments/:key', (req, res) => {
   const { admin_key, ...safe } = t;
   res.json(safe);
 });
-
 app.post('/api/tournaments/:key/join', (req, res) => {
   const { username, paymentHash } = req.body;
-  if (!username) return res.status(400).json({ error: 'Username required' });
 
-  if (!paymentHash) {
-    return res.status(400).json({ error: 'Payment required' });
-  }
+  if (!username) return res.status(400).json({ error: 'Username required' });
+  if (!paymentHash) return res.status(400).json({ error: 'Payment required' });
+
+  const cleanUsername = username.trim().slice(0, 20);
 
   const t = get('SELECT * FROM tournaments WHERE key = ?', [req.params.key]);
   if (!t) return res.status(404).json({ error: 'Tournament not found' });
   if (t.status !== 'pending') return res.status(400).json({ error: 'Tournament already started' });
-
-  const countRow = get('SELECT COUNT(*) as c FROM tournament_players WHERE tournament_id = ?', [t.id]);
-  const count = countRow ? countRow.c : 0;
-  const maxPlayers = parseInt(t.format) || 16;
-  if (count >= maxPlayers) return res.status(400).json({ error: 'Tournament is full' });
-
-  let user = get('SELECT * FROM users WHERE username = ?', [username.trim()]);
-  if (!user) {
-    const r = run('INSERT INTO users (username) VALUES (?)', [username.trim().slice(0, 20)]);
-    user = { id: r.lastInsertRowid, username: username.trim() };
-    run('INSERT OR IGNORE INTO user_stats (user_id) VALUES (?)', [user.id]);
-  }
-
-  const exists = get('SELECT 1 as x FROM tournament_players WHERE tournament_id = ? AND user_id = ?', [t.id, user.id]);
-  if (exists) return res.status(400).json({ error: 'Already joined' });
 
   const paidEntry = get(`
     SELECT *
@@ -295,24 +307,56 @@ app.post('/api/tournaments/:key/join', (req, res) => {
       AND payment_hash = ?
       AND status = 'PAID'
       AND joined_at IS NULL
-  `, [req.params.key, username.trim(), paymentHash]);
+  `, [req.params.key, cleanUsername, paymentHash]);
 
   if (!paidEntry) {
     return res.status(402).json({ error: 'Entry payment not confirmed' });
   }
-  
-  run('INSERT INTO tournament_players (tournament_id, user_id, seed) VALUES (?, ?, ?)', [t.id, user.id, count]);
 
-    run(`
+  const countRow = get('SELECT COUNT(*) as c FROM tournament_players WHERE tournament_id = ?', [t.id]);
+  const count = countRow ? countRow.c : 0;
+  const maxPlayers = parseInt(t.format) || 16;
+
+  if (count >= maxPlayers) return res.status(400).json({ error: 'Tournament is full' });
+
+  let user = get('SELECT * FROM users WHERE username = ?', [cleanUsername]);
+
+  if (!user) {
+    const r = run('INSERT INTO users (username) VALUES (?)', [cleanUsername]);
+    user = { id: r.lastInsertRowid, username: cleanUsername };
+    run('INSERT OR IGNORE INTO user_stats (user_id) VALUES (?)', [user.id]);
+  }
+
+  const exists = get(
+    'SELECT 1 as x FROM tournament_players WHERE tournament_id = ? AND user_id = ?',
+    [t.id, user.id]
+  );
+
+  if (exists) return res.status(400).json({ error: 'Already joined' });
+
+  const claimCode = crypto.randomBytes(24).toString('hex');
+
+  run('INSERT INTO tournament_players (tournament_id, user_id, seed) VALUES (?, ?, ?)', [
+    t.id,
+    user.id,
+    count
+  ]);
+
+  run(`
     UPDATE tournament_payments
-    SET joined_at = CURRENT_TIMESTAMP
+    SET joined_at = CURRENT_TIMESTAMP,
+        claim_code = ?
     WHERE payment_hash = ?
-  `, [paymentHash]);
+  `, [claimCode, paymentHash]);
 
   broadcastBracketUpdate(req.params.key, getTournamentFull(req.params.key));
-  res.json({ success: true, username: user.username });
-});
 
+  res.json({
+    success: true,
+    username: user.username,
+    claimUrl: `/claim.html?key=${req.params.key}&code=${claimCode}`
+  });
+});
 app.post('/api/tournaments/:key/start', (req, res) => {
   const { adminKey } = req.body;
   const t = get('SELECT * FROM tournaments WHERE key = ?', [req.params.key]);
@@ -534,6 +578,181 @@ app.get('/api/payments/status/:paymentHash', async (req, res) => {
     res.status(500).json({ error: 'Could not check payment status' });
   }
 });
+
+// ── Private Claim / Winner Reward ────────────────────────────────
+function getTournamentPrizeInfo(tournamentKey) {
+  const t = get('SELECT * FROM tournaments WHERE key = ?', [tournamentKey]);
+  if (!t) return null;
+
+  const paidRows = all(`
+    SELECT amount_sats
+    FROM tournament_payments
+    WHERE tournament_key = ?
+      AND status = 'PAID'
+      AND joined_at IS NOT NULL
+  `, [tournamentKey]);
+
+  const totalPot = paidRows.reduce((sum, row) => sum + Number(row.amount_sats || 0), 0);
+  const winnerPrizeSats = Math.floor(totalPot * 0.85);
+  const organizerSats = totalPot - winnerPrizeSats;
+
+  const format = parseInt(t.format) || 2;
+  const totalRounds = Math.log2(format);
+
+  const finalMatch = get(`
+    SELECT m.*, w.username AS winner_name
+    FROM matches m
+    LEFT JOIN users w ON w.id = m.winner_id
+    WHERE m.tournament_id = ?
+      AND m.round = ?
+  `, [t.id, totalRounds]);
+
+  const isFinished = Boolean(finalMatch && finalMatch.status === 'finished' && finalMatch.winner_id);
+
+  return {
+    tournament: t,
+    totalPot,
+    winnerPrizeSats,
+    organizerSats,
+    finalMatch,
+    isFinished,
+    winnerName: isFinished ? finalMatch.winner_name : null
+  };
+}
+
+app.get('/api/claims/:key/:code', (req, res) => {
+  const { key, code } = req.params;
+
+  const claim = get(`
+    SELECT *
+    FROM tournament_payments
+    WHERE tournament_key = ?
+      AND claim_code = ?
+      AND status = 'PAID'
+      AND joined_at IS NOT NULL
+  `, [key, code]);
+
+  if (!claim) {
+    return res.status(404).json({ error: 'Invalid claim link' });
+  }
+
+  const prize = getTournamentPrizeInfo(key);
+
+  if (!prize) {
+    return res.status(404).json({ error: 'Tournament not found' });
+  }
+
+  const payout = get(`
+    SELECT status, blink_status, winner_prize_sats, paid_at
+    FROM tournament_payouts
+    WHERE tournament_key = ?
+  `, [key]);
+
+  const isWinner = prize.isFinished && prize.winnerName === claim.player_name;
+
+  res.json({
+    ok: true,
+    tournamentKey: key,
+    playerName: claim.player_name,
+    isFinished: prize.isFinished,
+    isWinner,
+    winnerName: prize.winnerName,
+    totalPot: prize.totalPot,
+    winnerPrizeSats: prize.winnerPrizeSats,
+    organizerSats: prize.organizerSats,
+    payout: payout || null
+  });
+});
+
+app.post('/api/claims/:key/:code/payout', async (req, res) => {
+  try {
+    const { key, code } = req.params;
+    const { paymentRequest } = req.body;
+
+    if (!paymentRequest) {
+      return res.status(400).json({ error: 'Lightning invoice required' });
+    }
+
+    const claim = get(`
+      SELECT *
+      FROM tournament_payments
+      WHERE tournament_key = ?
+        AND claim_code = ?
+        AND status = 'PAID'
+        AND joined_at IS NOT NULL
+    `, [key, code]);
+
+    if (!claim) {
+      return res.status(404).json({ error: 'Invalid claim link' });
+    }
+
+    const prize = getTournamentPrizeInfo(key);
+
+    if (!prize) {
+      return res.status(404).json({ error: 'Tournament not found' });
+    }
+
+    if (!prize.isFinished) {
+      return res.status(400).json({ error: 'Tournament is not finished yet' });
+    }
+
+    if (prize.winnerName !== claim.player_name) {
+      return res.status(403).json({ error: 'Only the winner can claim this reward' });
+    }
+
+    if (prize.winnerPrizeSats <= 0) {
+      return res.status(400).json({ error: 'No reward available' });
+    }
+
+    const existing = get(`
+      SELECT *
+      FROM tournament_payouts
+      WHERE tournament_key = ?
+    `, [key]);
+
+    if (existing) {
+      return res.status(409).json({ error: 'Reward already claimed' });
+    }
+
+    const payout = await payInvoice({
+      walletId: process.env.BLINK_WALLET_ID,
+      paymentRequest
+    });
+
+    const blinkStatus = payout.status || 'UNKNOWN';
+    const blinkTxId = payout.transaction?.id || null;
+
+    run(`
+      INSERT INTO tournament_payouts
+      (tournament_key, winner_name, winner_prize_sats, payment_request, status, blink_status, blink_tx_id, paid_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    `, [
+      key,
+      claim.player_name,
+      prize.winnerPrizeSats,
+      paymentRequest,
+      'PAID',
+      blinkStatus,
+      blinkTxId
+    ]);
+
+    res.json({
+      ok: true,
+      winnerName: claim.player_name,
+      winnerPrizeSats: prize.winnerPrizeSats,
+      blinkStatus,
+      blinkTxId
+    });
+
+  } catch (err) {
+    console.error('Claim payout error:', err);
+    res.status(500).json({
+      error: 'Could not pay reward',
+      detail: err.message
+    });
+  }
+});
+
 // ── Online Match Result ──────────────────────────────────────────
 app.post('/api/online-match', (req, res) => {
   const { player1, player2, player1Score, player2Score } = req.body;

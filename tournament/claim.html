@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claim Reward — Dodge the Shitcoin</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#060810;
+  --card:rgba(8,11,20,0.9);
+  --gold:#ffd700;
+  --goldmid:#f5a623;
+  --golddim:#c8a060;
+  --text:#d4b870;
+  --textbri:#ffeaa0;
+  --err:#ef6644;
+  --ok:#22c55e;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{
+  min-height:100dvh;
+  background:radial-gradient(circle at center,rgba(245,166,35,0.12),transparent 45%),var(--bg);
+  color:var(--text);
+  font-family:'Cinzel',serif;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:1rem;
+}
+.card{
+  width:100%;
+  max-width:460px;
+  background:var(--card);
+  border:1px solid rgba(245,166,35,0.25);
+  border-radius:6px;
+  padding:1.4rem;
+  box-shadow:0 0 40px rgba(245,166,35,0.08);
+}
+h1{
+  font-size:1.35rem;
+  letter-spacing:2px;
+  color:var(--gold);
+  margin-bottom:0.5rem;
+  text-align:center;
+}
+.sub{
+  font-size:0.68rem;
+  color:var(--golddim);
+  text-align:center;
+  margin-bottom:1rem;
+  line-height:1.5;
+}
+.box{
+  border:1px solid rgba(245,166,35,0.16);
+  background:rgba(0,0,0,0.28);
+  padding:0.9rem;
+  border-radius:4px;
+  margin-bottom:1rem;
+  font-size:0.78rem;
+  line-height:1.8;
+}
+strong{color:var(--gold);}
+textarea{
+  width:100%;
+  min-height:110px;
+  background:rgba(0,0,0,0.45);
+  color:var(--textbri);
+  border:1px solid rgba(245,166,35,0.22);
+  border-radius:4px;
+  padding:0.8rem;
+  outline:none;
+  font-family:monospace;
+  font-size:0.78rem;
+  resize:vertical;
+}
+button{
+  width:100%;
+  padding:0.85rem;
+  margin-top:0.8rem;
+  border:0;
+  border-radius:4px;
+  cursor:pointer;
+  background:linear-gradient(135deg,var(--goldmid),#b8860b);
+  color:#060810;
+  font-family:'Cinzel',serif;
+  font-weight:900;
+  letter-spacing:2px;
+  text-transform:uppercase;
+}
+button:disabled{
+  opacity:0.5;
+  cursor:not-allowed;
+}
+.msg{
+  margin-top:0.8rem;
+  padding:0.75rem;
+  border-radius:4px;
+  font-size:0.75rem;
+  line-height:1.6;
+  display:none;
+}
+.msg.ok{
+  display:block;
+  color:var(--ok);
+  border:1px solid rgba(34,197,94,0.25);
+  background:rgba(34,197,94,0.06);
+}
+.msg.err{
+  display:block;
+  color:var(--err);
+  border:1px solid rgba(239,102,68,0.25);
+  background:rgba(239,102,68,0.06);
+}
+.small{
+  margin-top:0.75rem;
+  font-size:0.65rem;
+  color:#6b5a30;
+  line-height:1.6;
+  text-align:center;
+}
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>⚡ Claim Reward</h1>
+    <div class="sub">Private winner claim page. Do not show this link on the TV.</div>
+
+    <div class="box" id="status-box">
+      Loading claim...
+    </div>
+
+    <div id="claim-form" style="display:none;">
+      <div class="sub">
+        Paste a Lightning invoice from your wallet for the exact reward amount.
+      </div>
+      <textarea id="invoice" placeholder="lnbc..."></textarea>
+      <button id="claim-btn" onclick="claimReward()">Claim Reward</button>
+    </div>
+
+    <div class="msg" id="msg"></div>
+
+    <div class="small">
+      If you are not the winner, this page will not pay anything.
+    </div>
+  </div>
+
+<script>
+function getApiBase(){
+  const { protocol, hostname, origin } = window.location;
+  if (hostname === 'localhost' || hostname === '127.0.0.1') return `${protocol}//${hostname}:3001/api`;
+  return `${origin}/api`;
+}
+
+const API = getApiBase();
+const params = new URLSearchParams(window.location.search);
+const key = params.get('key');
+const code = params.get('code');
+
+let claimState = null;
+
+function showMsg(text, type){
+  const el = document.getElementById('msg');
+  el.className = 'msg ' + type;
+  el.textContent = text;
+}
+
+async function loadClaim(){
+  if (!key || !code) {
+    document.getElementById('status-box').innerHTML = 'Invalid claim link.';
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API}/claims/${key}/${code}`);
+    const data = await res.json();
+
+    if (!res.ok) {
+      document.getElementById('status-box').innerHTML = data.error || 'Could not load claim.';
+      return;
+    }
+
+    claimState = data;
+
+    let html = `
+      Player: <strong>${data.playerName}</strong><br>
+      Tournament: <strong>${data.tournamentKey}</strong><br>
+      Total pot: <strong>${data.totalPot} sats</strong><br>
+      Winner reward: <strong>${data.winnerPrizeSats} sats</strong><br>
+    `;
+
+    if (!data.isFinished) {
+      html += `<br>Status: Tournament not finished yet.`;
+      document.getElementById('claim-form').style.display = 'none';
+    } else if (!data.isWinner) {
+      html += `<br>Winner: <strong>${data.winnerName}</strong><br>Status: You are not the winner.`;
+      document.getElementById('claim-form').style.display = 'none';
+    } else if (data.payout) {
+      html += `<br>Status: Reward already claimed.`;
+      document.getElementById('claim-form').style.display = 'none';
+    } else {
+      html += `<br>Status: <strong>You won. Claim available.</strong>`;
+      document.getElementById('claim-form').style.display = 'block';
+    }
+
+    document.getElementById('status-box').innerHTML = html;
+
+  } catch(e) {
+    document.getElementById('status-box').innerHTML = 'Network error.';
+  }
+}
+
+async function claimReward(){
+  const invoice = document.getElementById('invoice').value.trim();
+  const btn = document.getElementById('claim-btn');
+
+  if (!invoice.startsWith('lnbc')) {
+    return showMsg('Paste a valid Lightning invoice.', 'err');
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Paying...';
+
+  try {
+    const res = await fetch(`${API}/claims/${key}/${code}/payout`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ paymentRequest: invoice })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      btn.disabled = false;
+      btn.textContent = 'Claim Reward';
+      return showMsg(data.error || 'Could not claim reward.', 'err');
+    }
+
+    showMsg(`Paid ${data.winnerPrizeSats} sats. Status: ${data.blinkStatus}`, 'ok');
+    document.getElementById('claim-form').style.display = 'none';
+    await loadClaim();
+
+  } catch(e) {
+    btn.disabled = false;
+    btn.textContent = 'Claim Reward';
+    showMsg('Network error while claiming.', 'err');
+  }
+}
+
+loadClaim();
+</script>
+</body>
+</html>
