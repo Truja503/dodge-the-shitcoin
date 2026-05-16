@@ -7,6 +7,7 @@ import Dollar from "../entities/Dollar.js";
 import OrangePill from "../entities/OrangePill.js";
 import { loadPlayerAssets, createPlayerAnimations } from "../animations/playerAnimations.js";
 import { GAME_WIDTH, GAME_HEIGHT } from "../utils/constants.js";
+import { enableKeyboardCapture, getGamepadForPlayer } from "../systems/InputManager.js";
 
 const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || ('ontouchstart' in window);
 
@@ -71,6 +72,7 @@ export default class SoloScene extends Phaser.Scene {
         // ── Input ────────────────────────────────────────────────
         this.cursors  = this.input.keyboard.createCursorKeys();
         this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+        enableKeyboardCapture(this);
 
         // ── Jugador ──────────────────────────────────────────────
         createPlayerAnimations(this);
@@ -218,7 +220,7 @@ export default class SoloScene extends Phaser.Scene {
         this.elapsedTime += delta;
         this._updateTimerHUD();
 
-        const pad = this.input.gamepad.getPad(0);
+        const pad = getGamepadForPlayer(this, 0);
 
         // ── Mobile joystick movement ─────────────────────────────
         if (isMobile && this.joystickActive) {
@@ -237,20 +239,13 @@ export default class SoloScene extends Phaser.Scene {
                 if (this.joystickVector.x < 0) this.player.sprite.setFlipX(true);
                 else if (this.joystickVector.x > 0) this.player.sprite.setFlipX(false);
             }
-        } else if (isMobile && !this.joystickActive) {
-            // Joystick released — stop
-            this.player.sprite.setVelocity(0, 0);
-            if (this.player.currentAnim !== 'player_idle') {
-                this.player.sprite.play('player_idle', true);
-                this.player.currentAnim = 'player_idle';
-            }
         } else {
-            // Desktop: keyboard + gamepad
+            // Keyboard + gamepad, including Bluetooth controllers/keyboards on mobile
             this.player.update(this.cursors, pad);
         }
 
-        // Lanzar dólar (desktop)
-        if (!isMobile && Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
+        // Keyboard throw. Gamepad throw is handled once inside Player.update().
+        if (Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
             this.player.throwDollar();
         }
 
