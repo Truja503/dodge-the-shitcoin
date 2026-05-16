@@ -1,6 +1,5 @@
 import Player from "../entities/Player.js";
 import Spawner from "../systems/Spawner.js";
-import DifficultyManager from "../systems/DifficultyManager.js";
 import Enemy from "../entities/Enemy.js";
 import Bitcoin from "../entities/Bitcoin.js";
 import Dollar from "../entities/Dollar.js";
@@ -16,6 +15,13 @@ const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || ('onto
 const PILL_VISIBLE_DURATION  = 5000;
 const PILL_RESPAWN_DELAY     = 50000;
 const SOLO_HIT_RECOVERY_MS   = 2000;
+const SOLO_START_ENEMY_SPEED = 180;
+const SOLO_MAX_ENEMY_SPEED   = 560;
+const SOLO_START_SPAWN_DELAY = 850;
+const SOLO_MIN_SPAWN_DELAY   = 300;
+const SOLO_DIFFICULTY_STEP   = 7000;
+const SOLO_START_MAX_ENEMIES = 5;
+const SOLO_MAX_ENEMIES       = 13;
 
 export default class SoloScene extends Phaser.Scene {
     constructor() {
@@ -43,6 +49,8 @@ export default class SoloScene extends Phaser.Scene {
         this.gameOver       = false;
         this.gameStarted    = false;
         this.hitRecovering  = false;
+        this.soloMaxEnemies = SOLO_START_MAX_ENEMIES;
+        this.enemySpawnDelay = SOLO_START_SPAWN_DELAY;
 
         // ── Grupos ───────────────────────────────────────────────
         this.dollars       = this.physics.add.group();
@@ -95,22 +103,14 @@ export default class SoloScene extends Phaser.Scene {
         // Gamepad — auto-detected in Player.update()
 
         // ── Spawner y dificultad ─────────────────────────────────
-        this.spawner    = new Spawner(this);
-        this.difficulty = new DifficultyManager(this.spawner);
+        this.spawner = new Spawner(this);
+        this.spawner.currentEnemySpeed = SOLO_START_ENEMY_SPEED;
 
+        this.enemySpawnEvent = this._createEnemySpawnEvent();
         this.time.addEvent({
-            delay: 500,
+            delay: SOLO_DIFFICULTY_STEP,
             loop: true,
-            callback: () => {
-                if (!this.gameOver && this.gameStarted) this.spawner.spawnEnemy();
-            }
-        });
-        this.time.addEvent({
-            delay: 5000,
-            loop: true,
-            callback: () => {
-                if (!this.gameOver && this.gameStarted) this.difficulty.increaseDifficulty();
-            }
+            callback: () => this._increaseSoloDifficulty()
         });
 
         // Dólar: cada 8s si no hay uno activo
@@ -229,7 +229,7 @@ export default class SoloScene extends Phaser.Scene {
         this.domBtc   = document.getElementById('solo-btc');
         this._updateLivesHUD();
 
-        playShitcoinerIntro(this, () => this._beginRun());
+        this._startIntroWithAudio();
     }
 
     update(time, delta) {
@@ -276,6 +276,7 @@ export default class SoloScene extends Phaser.Scene {
 
         // Enemigos
         this.spawner.enemyObjects.forEach(enemy => enemy.update());
+        this.spawner.enemyObjects = this.spawner.enemyObjects.filter(enemy => enemy.sprite && enemy.sprite.active);
 
         // Limpiar proyectiles fuera de pantalla
         this.thrownDollars.getChildren().forEach(proj => {
@@ -422,11 +423,129 @@ export default class SoloScene extends Phaser.Scene {
         this.spawner.bitcoins.add(btc.sprite);
     }
 
+    _startIntroWithAudio() {
+        const beginIntro = () => {
+            this._destroyStartOverlay();
+            startGameMusic(this);
+            playShitcoinerIntro(this, () => this._beginRun());
+        };
+
+        if (!this.sound.locked) {
+            beginIntro();
+            return;
+        }
+
+        this._showStartOverlay(beginIntro);
+    }
+
+    _showStartOverlay(beginIntro) {
+        const W = this.scale.width;
+        const H = this.scale.height;
+        const cx = W / 2;
+        const cy = H / 2;
+        const isMob = W < 520;
+
+        const shade = this.add.rectangle(0, 0, W, H, 0x000000, 0.72)
+            .setOrigin(0, 0).setDepth(350);
+        const title = this.add.text(cx, cy - 34, "DODGE THE SHITCOIN", {
+            fontFamily: "CinzelBold",
+            fontSize: isMob ? "28px" : "44px",
+            color: "#ffd700",
+            stroke: "#000000",
+            strokeThickness: 6,
+            shadow: { offsetX: 0, offsetY: 0, color: "#f5a623", blur: 20, fill: true }
+        }).setOrigin(0.5).setDepth(351);
+        const start = this.add.text(cx, cy + 44, "START", {
+            fontFamily: "CinzelBold",
+            fontSize: isMob ? "24px" : "32px",
+            color: "#38bdf8",
+            stroke: "#000000",
+            strokeThickness: 5
+        }).setOrigin(0.5).setDepth(351).setInteractive({ useHandCursor: true });
+
+        this._startOverlayElements = [shade, title, start];
+        this.tweens.add({
+            targets: start,
+            scaleX: 1.08,
+            scaleY: 1.08,
+            alpha: 0.72,
+            duration: 650,
+            yoyo: true,
+            repeat: -1,
+            ease: "Sine.easeInOut"
+        });
+
+        let started = false;
+        const startOnce = () => {
+            if (started) return;
+            started = true;
+            this._waitForAudioUnlock(beginIntro);
+        };
+
+        start.once("pointerdown", startOnce);
+        this.input.keyboard.once("keydown", startOnce);
+        this.input.once("pointerdown", startOnce);
+    }
+
+    _waitForAudioUnlock(done, attempts = 0) {
+        if (!this.sound.locked || attempts >= 20) {
+            done();
+            return;
+        }
+
+        this.time.delayedCall(50, () => this._waitForAudioUnlock(done, attempts + 1));
+    }
+
+    _destroyStartOverlay() {
+        if (!this._startOverlayElements) return;
+        this._startOverlayElements.forEach(el => { if (el && el.destroy) el.destroy(); });
+        this._startOverlayElements = null;
+    }
+
+    _createEnemySpawnEvent() {
+        return this.time.addEvent({
+            delay: this.enemySpawnDelay,
+            loop: true,
+            callback: () => {
+                if (this.gameOver || !this.gameStarted) return;
+                if (this._getActiveEnemyCount() >= this.soloMaxEnemies) return;
+                this.spawner.spawnEnemy();
+            }
+        });
+    }
+
+    _increaseSoloDifficulty() {
+        if (this.gameOver || !this.gameStarted) return;
+
+        const minutes = this.elapsedTime / 60000;
+        const btcPressure = Math.floor(this.bitcoinCount / 6) * 6;
+        const speedStep = minutes < 0.5 ? 16 : 24;
+
+        this.spawner.currentEnemySpeed = Math.min(
+            SOLO_MAX_ENEMY_SPEED,
+            this.spawner.currentEnemySpeed + speedStep + btcPressure
+        );
+        this.enemySpawnDelay = Math.max(
+            SOLO_MIN_SPAWN_DELAY,
+            this.enemySpawnDelay - (minutes < 0.5 ? 35 : 50)
+        );
+        this.soloMaxEnemies = Math.min(
+            SOLO_MAX_ENEMIES,
+            this.soloMaxEnemies + (minutes > 0.35 ? 1 : 0)
+        );
+
+        if (this.enemySpawnEvent) this.enemySpawnEvent.remove();
+        this.enemySpawnEvent = this._createEnemySpawnEvent();
+    }
+
+    _getActiveEnemyCount() {
+        return this.spawner.enemyObjects.filter(enemy => enemy.sprite && enemy.sprite.active).length;
+    }
+
     _beginRun() {
         if (this.gameStarted || this.gameOver) return;
         this.gameStarted = true;
         this.player.canMove = true;
-        startGameMusic(this);
         this.spawnNextBitcoin();
     }
 
