@@ -15,6 +15,7 @@ const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || ('onto
 
 const PILL_VISIBLE_DURATION  = 5000;
 const PILL_RESPAWN_DELAY     = 50000;
+const SOLO_HIT_RECOVERY_MS   = 2000;
 
 export default class SoloScene extends Phaser.Scene {
     constructor() {
@@ -41,6 +42,7 @@ export default class SoloScene extends Phaser.Scene {
         this.elapsedTime    = 0;
         this.gameOver       = false;
         this.gameStarted    = false;
+        this.hitRecovering  = false;
 
         // ── Grupos ───────────────────────────────────────────────
         this.dollars       = this.physics.add.group();
@@ -333,6 +335,7 @@ export default class SoloScene extends Phaser.Scene {
         if (this.gameOver || this.lives <= 0) return;
         const enemyObj = enemySprite._enemyRef;
         if (!enemyObj) return;
+        if (this.hitRecovering) return;
 
         // Invencible: destroy enemy, no damage
         if (this.player.isInvincible) {
@@ -372,10 +375,14 @@ export default class SoloScene extends Phaser.Scene {
         this.cameras.main.shake(stunDuration * 0.15, shakeIntensity);
 
         this.player.canMove = false;
+        this.hitRecovering = true;
         this.time.delayedCall(stunDuration, () => {
             if (this.player && this.player.sprite && this.player.sprite.body) {
                 this.player.canMove = true;
             }
+        });
+        this.time.delayedCall(SOLO_HIT_RECOVERY_MS, () => {
+            this.hitRecovering = false;
         });
 
         // Lose a life
@@ -385,13 +392,6 @@ export default class SoloScene extends Phaser.Scene {
 
         if (this.lives <= 0) {
             this._endGame();
-        } else {
-            // Reset position to center after stun
-            this.time.delayedCall(stunDuration + 100, () => {
-                if (this.player && this.player.sprite && this.player.sprite.body) {
-                    this.player.sprite.setPosition(this.scale.width / 2, this.scale.height / 2);
-                }
-            });
         }
     }
 
