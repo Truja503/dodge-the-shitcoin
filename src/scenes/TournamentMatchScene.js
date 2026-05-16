@@ -7,10 +7,12 @@ import Bitcoin from "../entities/Bitcoin.js";
 import { loadPlayerAssets, createPlayerAnimations } from "../animations/playerAnimations.js";
 import Dollar from "../entities/Dollar.js";
 import OrangePill from "../entities/OrangePill.js";
+import { enableKeyboardCapture, getGamepadForPlayer } from "../systems/InputManager.js";
 
 // Orange Pill: aparece 5s, se va, reaparece cada 50s
 const PILL_VISIBLE_DURATION  = 5000;
 const PILL_RESPAWN_DELAY     = 50000;
+const TOURNAMENT_WIN_SCORE   = 21;
 
 export default class TournamentMatchScene extends Phaser.Scene {
     constructor() {
@@ -90,12 +92,11 @@ export default class TournamentMatchScene extends Phaser.Scene {
         this.bitcoinsCollected = { player1: 0, player2: 0 };
         this.collectedCount = 0;
         this.gameStarted    = false; // starts when START is clicked
+        this.gameEnded      = false;
+        this.winningScore   = TOURNAMENT_WIN_SCORE;
 
-        // ── Timer (1.5 minutes) ──────────────────────────────────
-        this.matchDuration = 90000;
-        this.matchTimer = 0;
         if (this.domTimer) {
-            this.domTimer.textContent = '1:30';
+            this.domTimer.textContent = `First to ${this.winningScore}`;
             this.domTimer.classList.remove('urgent');
         }
 
@@ -119,6 +120,7 @@ export default class TournamentMatchScene extends Phaser.Scene {
             });
             this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
             this.eKey     = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
+            enableKeyboardCapture(this);
         }
 
         // ── Jugadores ────────────────────────────────────────────
@@ -305,29 +307,14 @@ export default class TournamentMatchScene extends Phaser.Scene {
     update() {
         if (!this.gameStarted) return;
 
-        // ── Match Timer ──────────────────────────────────────────
-        this.matchTimer += this.game.loop.delta;
-        const remaining = Math.max(0, this.matchDuration - this.matchTimer);
-        const sec = Math.ceil(remaining / 1000);
-        if (this.domTimer) {
-            this.domTimer.textContent = Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0');
-            if (remaining <= 30000) {
-                this.domTimer.classList.add('urgent');
-            }
-        }
-        if (remaining <= 0) {
-            this.endGame();
-            return;
-        }
-
         // ── Greed update ─────────────────────────────────────────
         this._updateGreed();
         this.spawner.currentEnemySpeed = this._baseDifficultySpeed + (this.greedLevel * 80);
 
         // ── Player input (only if not spectator) ─────────────────
         if (!this.isSpectator) {
-            const pad1 = this.input.gamepad.getPad(0);
-            const pad2 = this.input.gamepad.getPad(1);
+            const pad1 = getGamepadForPlayer(this, 0);
+            const pad2 = getGamepadForPlayer(this, 1);
             this.player.update(this.cursors, pad1);
             this.player2.update(this.wasdKeys, pad2);
 
@@ -449,7 +436,7 @@ export default class TournamentMatchScene extends Phaser.Scene {
     // BITCOIN
     // ═════════════════════════════════════════════════════════════
     collectBitcoin(player, bitcoin) {
-        if (!bitcoin || !bitcoin.active) return;
+        if (this.gameEnded || !bitcoin || !bitcoin.active) return;
         bitcoin.destroy();
         this.collectedCount++;
         this.recentCollections.push(Date.now());
@@ -458,6 +445,17 @@ export default class TournamentMatchScene extends Phaser.Scene {
             this.bitcoinsCollected.player1++;
         } else {
             this.bitcoinsCollected.player2++;
+        }
+
+        if (this.domP1Score) this.domP1Score.textContent = this.bitcoinsCollected.player1;
+        if (this.domP2Score) this.domP2Score.textContent = this.bitcoinsCollected.player2;
+
+        if (
+            this.bitcoinsCollected.player1 >= this.winningScore ||
+            this.bitcoinsCollected.player2 >= this.winningScore
+        ) {
+            this.endGame();
+            return;
         }
 
         this.spawnNextBitcoin();
@@ -483,6 +481,8 @@ export default class TournamentMatchScene extends Phaser.Scene {
     // END GAME
     // ═════════════════════════════════════════════════════════════
     endGame() {
+        if (this.gameEnded) return;
+        this.gameEnded = true;
         this.gameStarted = false;
 
         const W  = this.scale.width;
@@ -492,13 +492,12 @@ export default class TournamentMatchScene extends Phaser.Scene {
 
         const p1Score = this.bitcoinsCollected.player1;
         const p2Score = this.bitcoinsCollected.player2;
-        const isDraw  = p1Score === p2Score;
         const p1Wins  = p1Score > p2Score;
 
-        const winnerLabel = isDraw ? "DRAW" : p1Wins ? this.p1Name : this.p2Name;
-        const winnerColor = isDraw ? 0xe2e8f0 : p1Wins ? 0x38bdf8 : 0xf5a623;
-        const winnerHex   = isDraw ? "#e2e8f0" : p1Wins ? "#38bdf8" : "#f5a623";
-        const winnerSprite = isDraw ? null : p1Wins ? this.player?.sprite : this.player2?.sprite;
+        const winnerLabel = p1Wins ? this.p1Name : this.p2Name;
+        const winnerColor = p1Wins ? 0x38bdf8 : 0xf5a623;
+        const winnerHex   = p1Wins ? "#38bdf8" : "#f5a623";
+        const winnerSprite = p1Wins ? this.player?.sprite : this.player2?.sprite;
 
         // ── Auto-report to tournament API ──
         if (this.adminKeyParam && this.tournamentKey && this.matchId) {
@@ -608,7 +607,7 @@ export default class TournamentMatchScene extends Phaser.Scene {
 
         // ── 6. WINNER title ──
         this.time.delayedCall(550, () => {
-            const glow = this.add.text(cx, cy - 140, isDraw ? "DRAW" : "WINNER", {
+            const glow = this.add.text(cx, cy - 140, "WINNER", {
                 fontFamily: "Cinzel", fontSize: "72px", color: winnerHex,
             }).setOrigin(0.5).setDepth(90).setAlpha(0).setScale(3);
 
@@ -617,7 +616,7 @@ export default class TournamentMatchScene extends Phaser.Scene {
                 scaleX: 1, scaleY: 1, duration: 500, ease: 'Expo.easeOut'
             });
 
-            const title = this.add.text(cx, cy - 140, isDraw ? "DRAW" : "WINNER", {
+            const title = this.add.text(cx, cy - 140, "WINNER", {
                 fontFamily: "Cinzel", fontSize: "72px", color: winnerHex,
                 stroke: "#000000", strokeThickness: 8,
                 shadow: { offsetX: 0, offsetY: 0, color: winnerHex, blur: 30, fill: true }
@@ -634,18 +633,16 @@ export default class TournamentMatchScene extends Phaser.Scene {
                 }
             });
 
-            if (!isDraw) {
-                const nameText = this.add.text(cx, cy - 60, winnerLabel + "  WINS!", {
-                    fontFamily: "Cinzel", fontSize: "36px", color: winnerHex,
-                    stroke: "#000000", strokeThickness: 5,
-                    shadow: { offsetX: 0, offsetY: 0, color: winnerHex, blur: 20, fill: true }
-                }).setOrigin(0.5).setDepth(91).setAlpha(0).setY(cy - 40);
+            const nameText = this.add.text(cx, cy - 60, winnerLabel + "  WINS!", {
+                fontFamily: "Cinzel", fontSize: "36px", color: winnerHex,
+                stroke: "#000000", strokeThickness: 5,
+                shadow: { offsetX: 0, offsetY: 0, color: winnerHex, blur: 20, fill: true }
+            }).setOrigin(0.5).setDepth(91).setAlpha(0).setY(cy - 40);
 
-                this.tweens.add({
-                    targets: nameText, alpha: 1, y: cy - 60,
-                    duration: 400, delay: 150, ease: 'Back.easeOut'
-                });
-            }
+            this.tweens.add({
+                targets: nameText, alpha: 1, y: cy - 60,
+                duration: 400, delay: 150, ease: 'Back.easeOut'
+            });
         });
 
         // ── 7. Score display ──

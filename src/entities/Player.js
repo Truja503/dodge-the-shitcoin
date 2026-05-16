@@ -1,6 +1,7 @@
 import { PLAYER_SPEED } from "../utils/constants.js";
 import { GAME_WIDTH } from "../utils/constants.js";
 import { GAME_HEIGHT } from "../utils/constants.js";
+import { readCursorInput, readGamepadInput } from "../systems/InputManager.js";
 
 const DOLLAR_SLOW_SPEED    = 180;
 const DOLLAR_SLOW_DURATION = 4000;
@@ -52,39 +53,23 @@ export default class Player {
         let vx = 0;
         let vy = 0;
 
-        // Gamepad: auto-detect any connected pad (no flag needed)
-        const hasPad = pad && pad.axes && pad.axes.length >= 2;
-        if (hasPad) {
-            const axisX = pad.axes[0].getValue ? pad.axes[0].getValue() : pad.axes[0].value;
-            const axisY = pad.axes[1].getValue ? pad.axes[1].getValue() : pad.axes[1].value;
-            if (Math.abs(axisX) > 0.15) vx = axisX * this.speed;
-            if (Math.abs(axisY) > 0.15) vy = axisY * this.speed;
+        const padInput = readGamepadInput(pad, this.speed);
+        vx = padInput.vx;
+        vy = padInput.vy;
 
-            // D-pad fallback
-            if (vx === 0 && vy === 0) {
-                if (pad.left)  vx = -this.speed;
-                if (pad.right) vx =  this.speed;
-                if (pad.up)    vy = -this.speed;
-                if (pad.down)  vy =  this.speed;
+        if (padInput.throwPressed) {
+            if (!this._padThrowLock) {
+                this._padThrowLock = true;
+                this.throwDollar();
             }
-
-            // Throw with button (X on PS4 = index 0, A on Xbox = index 0)
-            if (pad.buttons && pad.buttons[0] && pad.buttons[0].pressed) {
-                if (!this._padThrowLock) {
-                    this._padThrowLock = true;
-                    this.throwDollar();
-                }
-            } else {
-                this._padThrowLock = false;
-            }
+        } else {
+            this._padThrowLock = false;
         }
 
-        // Keyboard (additive — works alongside gamepad)
         if (vx === 0 && vy === 0) {
-            vx = cursors.left.isDown  ? -this.speed :
-                 cursors.right.isDown ?  this.speed : 0;
-            vy = cursors.up.isDown    ? -this.speed :
-                 cursors.down.isDown  ?  this.speed : 0;
+            const keyboardInput = readCursorInput(cursors, this.speed);
+            vx = keyboardInput.vx;
+            vy = keyboardInput.vy;
         }
 
         this.sprite.setVelocity(vx, vy);

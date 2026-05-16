@@ -7,6 +7,7 @@ import Bitcoin from "../entities/Bitcoin.js";
 import { loadPlayerAssets, createPlayerAnimations } from "../animations/playerAnimations.js";
 import Dollar from "../entities/Dollar.js";
 import OrangePill from "../entities/OrangePill.js";
+import { enableKeyboardCapture, getGamepadForPlayer } from "../systems/InputManager.js";
 
 var player1Score = document.getElementById("player1-score");
 var player2Score = document.getElementById("player2-score");
@@ -101,6 +102,7 @@ export default class GameScene extends Phaser.Scene {
         });
         this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
         this.eKey     = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
+        enableKeyboardCapture(this);
 
         // ── Jugadores ────────────────────────────────────────────
         createPlayerAnimations(this);
@@ -229,9 +231,8 @@ export default class GameScene extends Phaser.Scene {
         this._updateGreed();
         this.spawner.currentEnemySpeed = this._baseDifficultySpeed + (this.greedLevel * 80);
 
-        // Pad 0 = Player1, Pad 1 = Player2 (any controller type)
-        const pad1 = this.input.gamepad.getPad(0);
-        const pad2 = this.input.gamepad.getPad(1);
+        const pad1 = getGamepadForPlayer(this, 0);
+        const pad2 = getGamepadForPlayer(this, 1);
         this.player.update(this.cursors, pad1);
         this.player2.update(this.wasdKeys, pad2);
 

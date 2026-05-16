@@ -26,7 +26,7 @@ export default class SoloScene extends Phaser.Scene {
         this.load.image("cloud",        "assets/backgrounds/fog_bg.png");
         this.load.image("bitcoin",      "assets/items/bitcoin.png");
         this.load.image("dollar",       "assets/items/dollar.png");
-        this.load.image("orangepill",   "assets/items/dollar.png");
+        this.load.image("orangepill",   "assets/items/orangepill.png");
     }
 
     create() {
