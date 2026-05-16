@@ -9,6 +9,7 @@ import { loadPlayerAssets, createPlayerAnimations } from "../animations/playerAn
 import { GAME_WIDTH, GAME_HEIGHT } from "../utils/constants.js";
 import { enableKeyboardCapture, getGamepadForPlayer } from "../systems/InputManager.js";
 import { playShitcoinerIntro } from "../systems/IntroSequence.js";
+import { preloadGameMusic, preloadGameSfx, startGameMusic, playHitSfx } from "../systems/MusicManager.js";
 
 const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || ('ontouchstart' in window);
 
@@ -29,6 +30,8 @@ export default class SoloScene extends Phaser.Scene {
         this.load.image("bitcoin",      "assets/items/bitcoin.png");
         this.load.image("dollar",       "assets/items/dollar.png");
         this.load.image("orangepill",   "assets/items/orangepill.png");
+        preloadGameMusic(this);
+        preloadGameSfx(this);
     }
 
     create() {
@@ -338,6 +341,8 @@ export default class SoloScene extends Phaser.Scene {
             return;
         }
 
+        playHitSfx(this);
+
         const ex = enemySprite.x;
         const ey = enemySprite.y;
         const hitForce     = enemyObj.getHitForce();
@@ -421,6 +426,7 @@ export default class SoloScene extends Phaser.Scene {
         if (this.gameStarted || this.gameOver) return;
         this.gameStarted = true;
         this.player.canMove = true;
+        startGameMusic(this);
         this.spawnNextBitcoin();
     }
 

@@ -1,3 +1,5 @@
+import { playLettersSfx } from "./MusicManager.js";
+
 export function playShitcoinerIntro(scene, done, options = {}) {
     const W = scene.scale.width;
     const H = scene.scale.height;
@@ -40,6 +42,7 @@ export function playShitcoinerIntro(scene, done, options = {}) {
         introElements.push(text);
 
         scene.time.delayedCall(delay, () => {
+            playLettersSfx(scene);
             scene.cameras.main.shake(120, 0.006 + index * 0.002);
             scene.tweens.add({
                 targets: text,

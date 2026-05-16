@@ -9,6 +9,7 @@ import Dollar from "../entities/Dollar.js";
 import OrangePill from "../entities/OrangePill.js";
 import { enableKeyboardCapture, getGamepadForPlayer } from "../systems/InputManager.js";
 import { playShitcoinerIntro } from "../systems/IntroSequence.js";
+import { preloadGameMusic, preloadGameSfx, startGameMusic, playHitSfx } from "../systems/MusicManager.js";
 
 var player1Score = document.getElementById("player1-score");
 var player2Score = document.getElementById("player2-score");
@@ -32,6 +33,8 @@ export default class GameScene extends Phaser.Scene {
         this.load.image("bitcoin",    "assets/items/bitcoin.png");
         this.load.image("dollar",     "assets/items/dollar.png");
         this.load.image("orangepill", "assets/items/orangepill.png"); // placeholder naranja
+        preloadGameMusic(this);
+        preloadGameSfx(this);
     }
 
     create() {
@@ -294,6 +297,7 @@ export default class GameScene extends Phaser.Scene {
         this.gameStarted = true;
         this.player.canMove = true;
         this.player2.canMove = true;
+        startGameMusic(this);
         this.spawnNextBitcoin();
     }
 
@@ -416,6 +420,7 @@ export default class GameScene extends Phaser.Scene {
     // ── Golpe de enemy ───────────────────────────────────────────
     hitByEnemy(playerObj) {
         if (!playerObj || !playerObj.sprite || !playerObj.sprite.active) return;
+        playHitSfx(this);
 
         // Enemies stun but do NOT reduce score
         if (playerObj.sprite && playerObj.sprite.body) playerObj.sprite.setVelocity(0, 0);
