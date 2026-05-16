@@ -8,6 +8,7 @@ import { loadPlayerAssets, createPlayerAnimations } from "../animations/playerAn
 import Dollar from "../entities/Dollar.js";
 import OrangePill from "../entities/OrangePill.js";
 import { enableKeyboardCapture, getGamepadForPlayer } from "../systems/InputManager.js";
+import { playShitcoinerIntro } from "../systems/IntroSequence.js";
 
 var player1Score = document.getElementById("player1-score");
 var player2Score = document.getElementById("player2-score");
@@ -72,7 +73,7 @@ export default class GameScene extends Phaser.Scene {
         // ── Estado ───────────────────────────────────────────────
         this.bitcoinsCollected = { player1: 0, player2: 0 };
         this.collectedCount = 0;
-        this.gameStarted    = true;
+        this.gameStarted    = false;
 
         // ── Timer (1.5 minutes) ──────────────────────────────────
         this.matchDuration = 90000; // 1.5 minutes in ms
@@ -108,7 +109,8 @@ export default class GameScene extends Phaser.Scene {
         createPlayerAnimations(this);
         this.player  = new Player(this);
         this.player2 = new Player2(this);
-        this.player.canMove = true;
+        this.player.canMove = false;
+        this.player2.canMove = false;
         header.style.display = "flex";
 
         // Reset score display
@@ -127,7 +129,9 @@ export default class GameScene extends Phaser.Scene {
         this.enemySpawnEvent = this.time.addEvent({
             delay: this.enemySpawnDelay,
             loop: true,
-            callback: () => this.spawner.spawnEnemy()
+            callback: () => {
+                if (this.gameStarted) this.spawner.spawnEnemy();
+            }
         });
 
         // Progressive difficulty: every 5 seconds
@@ -135,6 +139,8 @@ export default class GameScene extends Phaser.Scene {
             delay: 5000,
             loop: true,
             callback: () => {
+                if (!this.gameStarted) return;
+
                 // Increase base difficulty speed
                 this._baseDifficultySpeed += 30;
 
@@ -146,7 +152,9 @@ export default class GameScene extends Phaser.Scene {
                     this.enemySpawnEvent = this.time.addEvent({
                         delay: this.enemySpawnDelay,
                         loop: true,
-                        callback: () => this.spawner.spawnEnemy()
+                        callback: () => {
+                            if (this.gameStarted) this.spawner.spawnEnemy();
+                        }
                     });
                 }
             }
@@ -158,9 +166,6 @@ export default class GameScene extends Phaser.Scene {
 
         // Orange Pill: primer spawn a los 15s
         this.time.delayedCall(15000, () => this._spawnOrangePill());
-
-        // Infinite bitcoins — spawn first one
-        this.spawnNextBitcoin();
 
         // ── Colisiones ───────────────────────────────────────────
         new CollisionManager(this, this.player,  this.spawner, this, "player1");
@@ -207,6 +212,8 @@ export default class GameScene extends Phaser.Scene {
             frequency: 40,
             tint: [0x7dd3fc, 0x38bdf8, 0x0ea5e9],
         });
+
+        playShitcoinerIntro(this, () => this._beginMatch());
     }
 
     update() {
@@ -280,6 +287,14 @@ export default class GameScene extends Phaser.Scene {
         } else if (this.greedOverlay) {
             this.greedOverlay.setAlpha(0);
         }
+    }
+
+    _beginMatch() {
+        if (this.gameStarted) return;
+        this.gameStarted = true;
+        this.player.canMove = true;
+        this.player2.canMove = true;
+        this.spawnNextBitcoin();
     }
 
     // ── Spawn dólar (max 1 en pantalla) ─────────────────────────

@@ -964,11 +964,14 @@ document.getElementById('score-modal').addEventListener('click', (e) => {
 function launchMatch(matchId, p1Name, p2Name) {
   const overlay = document.getElementById('game-overlay');
   const iframe = document.getElementById('game-iframe');
+  const status = document.getElementById('game-overlay-status');
   document.getElementById('game-p1-name').textContent = p1Name;
   document.getElementById('game-p2-name').textContent = p2Name;
-  document.getElementById('game-overlay-status').textContent = 'Loading match...';
+  status.textContent = 'Loading match...';
+  status.style.display = 'block';
 
   const matchUrl = `match.html?p1=${encodeURIComponent(p1Name)}&p2=${encodeURIComponent(p2Name)}&matchId=${matchId}&tournamentKey=${tournamentKey}&adminKey=${adminKey}&spectator=false`;
+  iframe.onload = () => { status.textContent = ''; status.style.display = 'none'; };
   iframe.src = matchUrl;
   overlay.style.display = 'block';
 }
@@ -976,18 +979,27 @@ function launchMatch(matchId, p1Name, p2Name) {
 function spectateMatch(matchId, p1Name, p2Name) {
   const overlay = document.getElementById('game-overlay');
   const iframe = document.getElementById('game-iframe');
+  const status = document.getElementById('game-overlay-status');
   document.getElementById('game-p1-name').textContent = p1Name;
   document.getElementById('game-p2-name').textContent = p2Name;
-  document.getElementById('game-overlay-status').textContent = 'Spectating...';
+  status.textContent = 'Loading spectator view...';
+  status.style.display = 'block';
 
   const matchUrl = `match.html?p1=${encodeURIComponent(p1Name)}&p2=${encodeURIComponent(p2Name)}&matchId=${matchId}&tournamentKey=${tournamentKey}&spectator=true`;
+  iframe.onload = () => { status.textContent = ''; status.style.display = 'none'; };
   iframe.src = matchUrl;
   overlay.style.display = 'block';
 }
 
 window.addEventListener('message', (e) => {
   if (!e.data) return;
+  if (e.data.type === 'match_ready' || e.data.type === 'match_started') {
+    const status = document.getElementById('game-overlay-status');
+    status.textContent = '';
+    status.style.display = 'none';
+  }
   if (e.data.type === 'match_complete') {
+    document.getElementById('game-overlay-status').style.display = 'block';
     document.getElementById('game-overlay-status').textContent =
       `${e.data.winner} wins! (${e.data.p1Score} - ${e.data.p2Score})`;
   }

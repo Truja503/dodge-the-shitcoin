@@ -8,6 +8,7 @@ import OrangePill from "../entities/OrangePill.js";
 import { loadPlayerAssets, createPlayerAnimations } from "../animations/playerAnimations.js";
 import { GAME_WIDTH, GAME_HEIGHT } from "../utils/constants.js";
 import { enableKeyboardCapture, getGamepadForPlayer } from "../systems/InputManager.js";
+import { playShitcoinerIntro } from "../systems/IntroSequence.js";
 
 const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || ('ontouchstart' in window);
 
@@ -36,7 +37,7 @@ export default class SoloScene extends Phaser.Scene {
         this.bitcoinCount   = 0;
         this.elapsedTime    = 0;
         this.gameOver       = false;
-        this.gameStarted    = true;
+        this.gameStarted    = false;
 
         // ── Grupos ───────────────────────────────────────────────
         this.dollars       = this.physics.add.group();
@@ -78,7 +79,7 @@ export default class SoloScene extends Phaser.Scene {
         createPlayerAnimations(this);
         this.player = new Player(this);
         this.player.sprite.setPosition(this.scale.width / 2, this.scale.height / 2);
-        this.player.canMove = true;
+        this.player.canMove = false;
 
         // Slightly slower speed for mobile
         if (isMobile) {
@@ -92,8 +93,20 @@ export default class SoloScene extends Phaser.Scene {
         this.spawner    = new Spawner(this);
         this.difficulty = new DifficultyManager(this.spawner);
 
-        this.time.addEvent({ delay: 500,  loop: true, callback: () => { if (!this.gameOver) this.spawner.spawnEnemy(); } });
-        this.time.addEvent({ delay: 5000, loop: true, callback: () => { if (!this.gameOver) this.difficulty.increaseDifficulty(); } });
+        this.time.addEvent({
+            delay: 500,
+            loop: true,
+            callback: () => {
+                if (!this.gameOver && this.gameStarted) this.spawner.spawnEnemy();
+            }
+        });
+        this.time.addEvent({
+            delay: 5000,
+            loop: true,
+            callback: () => {
+                if (!this.gameOver && this.gameStarted) this.difficulty.increaseDifficulty();
+            }
+        });
 
         // Dólar: cada 8s si no hay uno activo
         this.time.addEvent({ delay: 8000, loop: true, callback: () => this._spawnDollarIfNone() });
@@ -101,9 +114,6 @@ export default class SoloScene extends Phaser.Scene {
 
         // Orange Pill: primer spawn a los 15s
         this.time.delayedCall(15000, () => this._spawnOrangePill());
-
-        // Primer bitcoin
-        this.spawnNextBitcoin();
 
         // ── Colisiones ───────────────────────────────────────────
         // Jugador vs enemigos
@@ -165,6 +175,7 @@ export default class SoloScene extends Phaser.Scene {
                 .setDepth(101).setScrollFactor(0);
 
             this.input.on('pointerdown', (pointer) => {
+                if (!this.gameStarted || this.gameOver) return;
                 if (pointer.x < this.scale.width / 2) {
                     this.joystickActive = true;
                     this.joystickOrigin = { x: pointer.x, y: pointer.y };
@@ -173,6 +184,7 @@ export default class SoloScene extends Phaser.Scene {
                 }
             });
             this.input.on('pointermove', (pointer) => {
+                if (!this.gameStarted || this.gameOver) return;
                 if (this.joystickActive && pointer.x < this.scale.width * 0.6) {
                     const dx = pointer.x - this.joystickOrigin.x;
                     const dy = pointer.y - this.joystickOrigin.y;
@@ -202,7 +214,7 @@ export default class SoloScene extends Phaser.Scene {
             this.throwBtnText = this.add.text(this.scale.width - 80, this.scale.height - 120, '💵', { fontSize: '28px' })
                 .setOrigin(0.5).setDepth(101).setScrollFactor(0);
             this.throwBtn.on('pointerdown', () => {
-                if (!this.gameOver) this.player.throwDollar();
+                if (!this.gameOver && this.gameStarted) this.player.throwDollar();
             });
         }
 
@@ -211,10 +223,12 @@ export default class SoloScene extends Phaser.Scene {
         this.domTimer = document.getElementById('solo-timer');
         this.domBtc   = document.getElementById('solo-btc');
         this._updateLivesHUD();
+
+        playShitcoinerIntro(this, () => this._beginRun());
     }
 
     update(time, delta) {
-        if (this.gameOver) return;
+        if (this.gameOver || !this.gameStarted) return;
 
         // Timer
         this.elapsedTime += delta;
@@ -269,7 +283,7 @@ export default class SoloScene extends Phaser.Scene {
 
     // ── Spawn dólar (max 1 en pantalla) ─────────────────────────
     _spawnDollarIfNone() {
-        if (this.gameOver) return;
+        if (this.gameOver || !this.gameStarted) return;
         if (this.dollars.countActive(true) > 0) return;
         const x = Phaser.Math.Between(80, this.scale.width - 80);
         const y = Phaser.Math.Between(80, this.scale.height - 80);
@@ -279,7 +293,7 @@ export default class SoloScene extends Phaser.Scene {
 
     // ── Spawn Orange Pill ────────────────────────────────────────
     _spawnOrangePill() {
-        if (this.gameOver) return;
+        if (this.gameOver || !this.gameStarted) return;
 
         const x = Phaser.Math.Between(80, this.scale.width - 80);
         const y = Phaser.Math.Between(80, this.scale.height - 80);
@@ -401,6 +415,13 @@ export default class SoloScene extends Phaser.Scene {
         const y = Phaser.Math.Between(50, this.scale.height - 100);
         const btc = new Bitcoin(this, x, y);
         this.spawner.bitcoins.add(btc.sprite);
+    }
+
+    _beginRun() {
+        if (this.gameStarted || this.gameOver) return;
+        this.gameStarted = true;
+        this.player.canMove = true;
+        this.spawnNextBitcoin();
     }
 
     // ── HUD updates ──────────────────────────────────────────────

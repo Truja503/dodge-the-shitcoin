@@ -8,6 +8,7 @@ import { loadPlayerAssets, createPlayerAnimations } from "../animations/playerAn
 import Dollar from "../entities/Dollar.js";
 import OrangePill from "../entities/OrangePill.js";
 import { enableKeyboardCapture, getGamepadForPlayer } from "../systems/InputManager.js";
+import { playShitcoinerIntro } from "../systems/IntroSequence.js";
 
 // Orange Pill: aparece 5s, se va, reaparece cada 50s
 const PILL_VISIBLE_DURATION  = 5000;
@@ -186,6 +187,7 @@ export default class TournamentMatchScene extends Phaser.Scene {
 
         // ── Show START overlay ───────────────────────────────────
         this._showStartOverlay();
+        this._postToParent({ type: 'match_ready' });
     }
 
     // ═════════════════════════════════════════════════════════════
@@ -235,8 +237,7 @@ export default class TournamentMatchScene extends Phaser.Scene {
             startBtn.on('pointerover', () => startBtn.setColor('#4ade80'));
             startBtn.on('pointerout', () => startBtn.setColor('#22c55e'));
             startBtn.on('pointerdown', () => {
-                this._destroyOverlay();
-                this._beginMatch();
+                this._startIntroThenMatch();
             });
         } else {
             const specText = this.add.text(cx, cy + 150, '👁 SPECTATING', {
@@ -246,10 +247,16 @@ export default class TournamentMatchScene extends Phaser.Scene {
 
             // Spectator auto-starts after 3s
             this.time.delayedCall(3000, () => {
-                this._destroyOverlay();
-                this._beginMatch();
+                this._startIntroThenMatch();
             });
         }
+    }
+
+    _startIntroThenMatch() {
+        if (this._introStarted || this.gameStarted) return;
+        this._introStarted = true;
+        this._destroyOverlay();
+        this._playIntro(() => this._beginMatch());
     }
 
     _destroyOverlay() {
@@ -259,17 +266,25 @@ export default class TournamentMatchScene extends Phaser.Scene {
         }
     }
 
+    _playIntro(done) {
+        playShitcoinerIntro(this, done);
+    }
+
     _beginMatch() {
+        if (this.gameStarted) return;
         this.gameStarted = true;
         this.player.canMove  = !this.isSpectator;
         this.player2.canMove = !this.isSpectator;
+        this._postToParent({ type: 'match_started' });
 
         // ── Scalable Difficulty ──────────────────────────────────
         this.enemySpawnDelay = 800;
         this.enemySpawnEvent = this.time.addEvent({
             delay: this.enemySpawnDelay,
             loop: true,
-            callback: () => this.spawner.spawnEnemy()
+            callback: () => {
+                if (this.gameStarted) this.spawner.spawnEnemy();
+            }
         });
 
         // Progressive difficulty: every 5 seconds
@@ -277,6 +292,8 @@ export default class TournamentMatchScene extends Phaser.Scene {
             delay: 5000,
             loop: true,
             callback: () => {
+                if (!this.gameStarted) return;
+
                 this._baseDifficultySpeed += 30;
                 if (this.enemySpawnDelay > 200) {
                     this.enemySpawnDelay -= 30;
@@ -284,7 +301,9 @@ export default class TournamentMatchScene extends Phaser.Scene {
                     this.enemySpawnEvent = this.time.addEvent({
                         delay: this.enemySpawnDelay,
                         loop: true,
-                        callback: () => this.spawner.spawnEnemy()
+                        callback: () => {
+                            if (this.gameStarted) this.spawner.spawnEnemy();
+                        }
                     });
                 }
             }
@@ -517,15 +536,13 @@ export default class TournamentMatchScene extends Phaser.Scene {
         }
 
         // ── PostMessage to parent frame ──
-        try {
-            window.parent.postMessage({
-                type: 'match_complete',
-                matchId: this.matchId,
-                p1Score: p1Score,
-                p2Score: p2Score,
-                winner: winnerLabel
-            }, '*');
-        } catch (e) {}
+        this._postToParent({
+            type: 'match_complete',
+            matchId: this.matchId,
+            p1Score: p1Score,
+            p2Score: p2Score,
+            winner: winnerLabel
+        });
 
         // ── 1. Black overlay fade-in ──
         const overlay = this.add.rectangle(cx, cy, W, H, 0x000000, 0).setDepth(50);
@@ -671,9 +688,13 @@ export default class TournamentMatchScene extends Phaser.Scene {
 
         // ── 9. PostMessage close after 5s ──
         this.time.delayedCall(5000, () => {
-            try {
-                window.parent.postMessage({ type: 'match_close' }, '*');
-            } catch (e) {}
+            this._postToParent({ type: 'match_close' });
         });
+    }
+
+    _postToParent(message) {
+        try {
+            window.parent.postMessage(message, '*');
+        } catch (e) {}
     }
 }
